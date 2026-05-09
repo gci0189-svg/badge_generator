@@ -247,16 +247,15 @@ if xl_file:
     col_num  = c3.selectbox("編號欄位", cols, index=ei)
 
 # ── 字型載入 ────────────────────────────────────────────────────
-@st.cache_resource
-def load_font(path, size):
+def get_font(font_key, size):
+    path = ALL_FONTS.get(font_key, list(FALLBACK_FONTS.values())[0])
     try:
         return ImageFont.truetype(path, size)
     except Exception:
-        return ImageFont.load_default()
-
-def get_font(font_key, size):
-    path = ALL_FONTS.get(font_key, list(FALLBACK_FONTS.values())[0])
-    return load_font(path, size)
+        try:
+            return ImageFont.truetype(list(FALLBACK_FONTS.values())[0], size)
+        except Exception:
+            return ImageFont.load_default()
 
 # ── 產生單張工作證 ───────────────────────────────────────────────
 def make_badge(bg_img, role, name, num, cfg):
