@@ -138,36 +138,41 @@ def make_badge(bg_img, row, cfg):
     name_str = str(row["name"])
     num_str  = str(row["num"])
 
-    # 計算各段寬度
-    role_bbox = draw.textbbox((0, 0), role_str, font=lg)
-    role_w    = role_bbox[2] - role_bbox[0]
-    role_h    = role_bbox[3] - role_bbox[1]  # ← 字高，分隔線就等這個
+    # 用 textlength 取寬度（相容所有 Pillow 版本與字型）
+    def text_w(text, font):
+        try:
+            return int(font.getlength(text))
+        except Exception:
+            bb = draw.textbbox((0, 0), text, font=font)
+            return bb[2] - bb[0]
 
-    name_bbox = draw.textbbox((0, 0), name_str, font=lg)
-    name_w    = name_bbox[2] - name_bbox[0]
+    # 字高直接用字型大小（最穩定的方式）
+    role_w  = text_w(role_str, lg)
+    role_h  = cfg["flg"]          # ← 直接用設定的字型大小當字高
 
-    num_bbox  = draw.textbbox((0, 0), num_str, font=num_f)
-    num_w     = num_bbox[2] - num_bbox[0]
-    num_h     = num_bbox[3] - num_bbox[1]
+    name_w  = text_w(name_str, lg)
+
+    num_w   = text_w(num_str, num_f)
+    num_h   = cfg["fnum"]
 
     # X 起點
-    rx   = int(cfg["role_x"])
+    rx    = int(cfg["role_x"])
     # 分隔線 X（職務右側 + 留白）
     div_x = rx + role_w + cfg["div_pad"]
     # 姓名 X（分隔線右側 + 留白）
-    nx   = div_x + cfg["div_w"] + cfg["div_pad"]
+    nx    = div_x + cfg["div_w"] + cfg["div_pad"]
     # 編號 X（姓名右側 + 間距）
-    ex   = nx + name_w + cfg["num_gap"]
+    ex    = nx + name_w + cfg["num_gap"]
 
     # Y 基準
-    y    = int(cfg["row_y"])
+    y = int(cfg["row_y"])
 
     # 繪製職務
     draw.text((rx, y), role_str, font=lg, fill=c)
 
-    # 繪製分隔線（高度 = role_h，與文字等高）
-    line_top    = y + role_bbox[1]          # 對齊文字頂端（含字型上緣）
-    line_bottom = line_top + role_h
+    # 繪製分隔線（高度 = role_h = 字型大小，與文字等高）
+    line_top    = y
+    line_bottom = y + role_h
     draw.line([(div_x, line_top), (div_x, line_bottom)],
               fill=c, width=cfg["div_w"])
 
@@ -175,7 +180,7 @@ def make_badge(bg_img, row, cfg):
     draw.text((nx, y), name_str, font=lg, fill=c)
 
     # 繪製編號（垂直置中對齊大字）
-    num_y = y + (role_h - num_h) // 2 + role_bbox[1]
+    num_y = y + (role_h - num_h) // 2
     draw.text((ex, num_y), num_str, font=num_f, fill=c)
 
     return img
