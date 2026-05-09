@@ -328,9 +328,11 @@ def make_badge(bg_img, role, name, num, cfg):
     name_x = sep_x + sep_thickness + sep_gap
     draw.text((name_x, row_y - 2), str(name), font=f_name, fill=c)
 
-    # 編號（自動貼齊姓名右側）
-    num_x = name_x + name_w + num_gap
-    num_y = row_y + (cfg["fs_name"] - cfg["fs_num"]) // 2
+    # 編號：底部對齊姓名底部再往上 10px
+    name_h = f_name.getbbox(str(name))[3]
+    num_h  = f_num.getbbox(str(num))[3]
+    num_x  = name_x + name_w + num_gap
+    num_y  = row_y - 2 + name_h - num_h - 10
     draw.text((num_x, num_y), str(num), font=f_num, fill=c)
 
     return img
