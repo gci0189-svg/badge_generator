@@ -12,7 +12,24 @@ import tempfile, os
 UNIT_NAME = "阿甯咕劇團"
 
 # ── 字型資料夾（repo 根目錄下的 fonts/） ────────────────────────
-FONT_DIR = os.path.join(os.path.dirname(__file__), "fonts")
+# 嘗試多種路徑找 fonts/，確保 Streamlit Cloud 也能正確讀到
+def find_font_dir():
+    candidates = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts"),
+        os.path.join(os.getcwd(), "fonts"),
+        "/app/fonts",          # Streamlit Cloud 部署路徑
+        "/mount/src/fonts",    # 部分版本的 Streamlit Cloud
+    ]
+    # 找第一個存在且有字型檔的資料夾
+    for path in candidates:
+        if os.path.isdir(path):
+            files = [f for f in os.listdir(path) if f.lower().endswith((".ttf",".otf",".ttc"))]
+            if files:
+                return path
+    # 都找不到就回傳預設（讓後續邏輯靜默處理）
+    return os.path.join(os.getcwd(), "fonts")
+
+FONT_DIR = find_font_dir()
 
 # Noto 備用字型（Streamlit Cloud 系統字型）
 FALLBACK_FONTS = {
@@ -101,10 +118,10 @@ with st.sidebar:
 
     # ── 字型狀態提示 ─────────────────────────────────────────
     if REPO_FONTS:
-        st.markdown(f'<div class="font-hint">✅ 已載入 {len(REPO_FONTS)} 個 repo 字型</div>',
+        st.markdown(f'<div class="font-hint">✅ 已載入 {len(REPO_FONTS)} 個 repo 字型<br>📂 路徑：{FONT_DIR}</div>',
                     unsafe_allow_html=True)
     else:
-        st.warning("⚠️ fonts/ 資料夾無字型，使用系統備用字型")
+        st.warning(f"⚠️ fonts/ 資料夾無字型，使用系統備用字型\n📂 找尋路徑：{FONT_DIR}")
 
     st.divider()
 
