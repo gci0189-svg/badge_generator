@@ -282,22 +282,31 @@ def make_badge(bg_img, role, name, num, cfg):
     f_name = get_font(cfg["f_name"], cfg["fs_name"])
     f_num  = get_font(cfg["f_num"],  cfg["fs_num"])
 
-    def text_width(draw_obj, text, font):
+    def text_width(text, font):
+        # getbbox 優先（對 .otf 最穩定），textlength 備用
         try:
-            w = draw_obj.textlength(str(text), font=font)
+            bb = font.getbbox(str(text))
+            w = bb[2] - bb[0]
+            if w > 0:
+                return float(w)
+        except Exception:
+            pass
+        try:
+            w = draw.textlength(str(text), font=font)
             if w > 0:
                 return w
         except Exception:
             pass
+        # 最後備用：用單字寬度估算
         try:
-            bb = font.getbbox(str(text))
-            return bb[2] - bb[0]
+            single = font.getbbox("國")[2] - font.getbbox("國")[0]
+            return single * len(str(text))
         except Exception:
-            return len(str(text)) * font.size
+            return cfg["fs_role"] * len(str(text))
 
-    role_w = text_width(draw, str(role), f_role)
-    name_w = text_width(draw, str(name), f_name)
-    num_w  = text_width(draw, str(num),  f_num)
+    role_w = text_width(str(role), f_role)
+    name_w = text_width(str(name), f_name)
+    num_w  = text_width(str(num),  f_num)
 
     sep_gap       = cfg["sep_gap"]    # 分隔線左右留白
     sep_thickness = cfg["sep_w"]
@@ -372,6 +381,18 @@ if bg_file and xl_file and col_role:
         st.write(f"姓名字型：`{f_name_key}` → `{path_name}`")
         st.write(f"編號字型：`{f_num_key}` → `{path_num}`")
         st.write(f"路徑存在：職稱={os.path.exists(path_role)}, 姓名={os.path.exists(path_name)}, 編號={os.path.exists(path_num)}")
+        try:
+            from PIL import ImageFont, ImageDraw, Image as PILImage
+            _img = PILImage.new("RGB", (10,10))
+            _draw = ImageDraw.Draw(_img)
+            _fr = ImageFont.truetype(path_role, cfg["fs_role"])
+            _fn = ImageFont.truetype(path_name, cfg["fs_name"])
+            _bb_r = _fr.getbbox(str(first[col_role]))
+            _bb_n = _fn.getbbox(str(first[col_name]))
+            st.write(f"職稱 getbbox 寬度: {_bb_r[2]-_bb_r[0]}")
+            st.write(f"姓名 getbbox 寬度: {_bb_n[2]-_bb_n[0]}")
+        except Exception as e:
+            st.write(f"寬度計算錯誤: {e}")
         st.write(f"FONT_DIR={FONT_DIR}")
         st.write(f"REPO_FONTS keys={list(REPO_FONTS.keys())}")
 
