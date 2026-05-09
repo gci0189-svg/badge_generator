@@ -12,21 +12,16 @@ st.set_page_config(page_title="工作證產生器", layout="wide")
 st.title("🎭 工作證產生器")
 st.markdown("上傳底圖與 Excel 名單，自動產生 A4 排版 PDF（每頁 6 張）")
 
-# ── 字型載入（支援中文）─────────────────────────────────────────
 def get_font(size):
     candidates = [
+        os.path.join(os.path.dirname(__file__), "fonts", "NotoSansCJK-Regular.ttc"),
         "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/noto/NotoSerifCJK-Regular.ttc",
         "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
         "/System/Library/Fonts/PingFang.ttc",
         "C:/Windows/Fonts/msjh.ttc",
         "C:/Windows/Fonts/mingliu.ttc",
     ]
-    # 也嘗試 repo 內放的字型
-    local = os.path.join(os.path.dirname(__file__), "fonts", "NotoSansCJK-Regular.ttc")
-    candidates.insert(0, local)
-
     for path in candidates:
         if os.path.exists(path):
             try:
@@ -35,7 +30,6 @@ def get_font(size):
                 continue
     return ImageFont.load_default()
 
-# ── 側欄：設定 ───────────────────────────────────────────────────
 with st.sidebar:
     st.header("⚙️ 設定")
 
@@ -67,8 +61,8 @@ with st.sidebar:
     date_x = dx1.number_input("日期 X", value=25)
     date_y = dy1.number_input("日期 Y", value=78)
 
-    st.caption("職稱｜姓名 編號 整體置中設定")
-    row_y = st.number_input("整列 Y 座標", value=220, step=5)
+    st.caption("職稱｜姓名 編號 — 整列設定")
+    row_y  = st.number_input("整列 Y 座標", value=220, step=5)
     role_x = st.number_input("職務起始 X", value=25)
 
     st.divider()
@@ -79,15 +73,13 @@ with st.sidebar:
 
     st.divider()
     st.subheader("分隔線樣式")
-    st.caption("✅ 高度自動等於大字字高，無需手動調")
-    div_w    = st.slider("分隔線粗細（px）", 1, 8, 3)
-    div_pad  = st.slider("分隔線左右留白（px）", 4, 40, 14)
-
-    num_gap  = st.slider("編號與姓名間距（px）", 4, 40, 12)
+    div_h   = st.slider("分隔線高度（px）", 10, 150, 72)
+    div_w   = st.slider("分隔線粗細（px）", 1, 8, 3)
+    div_pad = st.slider("分隔線左右留白（px）", 4, 40, 14)
+    num_gap = st.slider("編號與姓名間距（px）", 4, 40, 12)
 
     txt_color = st.color_picker("文字顏色", "#000000")
 
-# ── 主區：上傳 ───────────────────────────────────────────────────
 col1, col2 = st.columns(2)
 with col1:
     bg_file = st.file_uploader("📁 上傳底圖（JPG / PNG）", type=["jpg","jpeg","png"])
@@ -98,7 +90,6 @@ with col2:
         st.dataframe(df_preview, use_container_width=True)
         st.caption(f"共 {len(df_preview)} 筆資料")
 
-# ── 欄位對應 ─────────────────────────────────────────────────────
 col_role = col_name = col_num = None
 col_prog = col_unit = col_date = None
 
@@ -118,80 +109,54 @@ if xl_file:
         col_unit = c5.selectbox("單位欄位", cols)
         col_date = c6.selectbox("日期欄位", cols)
 
-# ── 產生單張工作證 ───────────────────────────────────────────────
 def make_badge(bg_img, row, cfg):
-    img = bg_img.copy().convert("RGBA").resize((cfg["w"], cfg["h"]))
+    img  = bg_img.copy().convert("RGBA").resize((cfg["w"], cfg["h"]))
     draw = ImageDraw.Draw(img)
 
-    sm   = get_font(cfg["fsm"])
-    lg   = get_font(cfg["flg"])
+    sm    = get_font(cfg["fsm"])
+    lg    = get_font(cfg["flg"])
     num_f = get_font(cfg["fnum"])
-    c    = cfg["color"]
+    c     = cfg["color"]
 
-    # 固定三行
     draw.text((cfg["prog_x"], cfg["prog_y"]), f"節目名稱：{row['prog']}", font=sm, fill=c)
     draw.text((cfg["unit_x"], cfg["unit_y"]), f"使用單位：{row['unit']}", font=sm, fill=c)
     draw.text((cfg["date_x"], cfg["date_y"]), f"使用日期：{row['date']}", font=sm, fill=c)
 
-    # ── 職務｜姓名 編號（動態排版）──────────────────────────────
     role_str = str(row["role"])
     name_str = str(row["name"])
     num_str  = str(row["num"])
 
-    # 用 textlength 取寬度（相容所有 Pillow 版本與字型）
-    def text_w(text, font):
-        try:
-            return int(font.getlength(text))
-        except Exception:
-            bb = draw.textbbox((0, 0), text, font=font)
-            return bb[2] - bb[0]
+    y  = int(cfg["row_y"])
+    rx = int(cfg["role_x"])
 
-    # 字高直接用字型大小（最穩定的方式）
-    role_w  = text_w(role_str, lg)
-    role_h  = cfg["flg"]          # ← 直接用設定的字型大小當字高
+    try:
+        role_w = int(lg.getlength(role_str))
+        name_w = int(lg.getlength(name_str))
+    except Exception:
+        bb = draw.textbbox((0, 0), role_str, font=lg)
+        role_w = bb[2] - bb[0]
+        bb = draw.textbbox((0, 0), name_str, font=lg)
+        name_w = bb[2] - bb[0]
 
-    name_w  = text_w(name_str, lg)
-
-    num_w   = text_w(num_str, num_f)
-    num_h   = cfg["fnum"]
-
-    # X 起點
-    rx    = int(cfg["role_x"])
-    # 分隔線 X（職務右側 + 留白）
     div_x = rx + role_w + cfg["div_pad"]
-    # 姓名 X（分隔線右側 + 留白）
     nx    = div_x + cfg["div_w"] + cfg["div_pad"]
-    # 編號 X（姓名右側 + 間距）
     ex    = nx + name_w + cfg["num_gap"]
 
-    # Y 基準
-    y = int(cfg["row_y"])
-
-    # 繪製職務
     draw.text((rx, y), role_str, font=lg, fill=c)
-
-    # 繪製分隔線（高度 = role_h = 字型大小，與文字等高）
-    line_top    = y
-    line_bottom = y + role_h
-    draw.line([(div_x, line_top), (div_x, line_bottom)],
-              fill=c, width=cfg["div_w"])
-
-    # 繪製姓名
+    draw.line([(div_x, y), (div_x, y + cfg["div_h"])], fill=c, width=cfg["div_w"])
     draw.text((nx, y), name_str, font=lg, fill=c)
 
-    # 繪製編號（垂直置中對齊大字）
-    num_y = y + (role_h - num_h) // 2
+    num_y = y + (cfg["flg"] - cfg["fnum"]) // 2
     draw.text((ex, num_y), num_str, font=num_f, fill=c)
 
     return img
 
-# ── 預覽 ─────────────────────────────────────────────────────────
 if bg_file and xl_file and col_role:
     st.divider()
     st.subheader("👁️ 預覽第一張")
 
-    bg = Image.open(bg_file)
-    df = pd.read_excel(xl_file)
+    bg    = Image.open(bg_file)
+    df    = pd.read_excel(xl_file)
     first = df.iloc[0]
 
     cfg = dict(
@@ -200,9 +165,9 @@ if bg_file and xl_file and col_role:
         prog_x=prog_x, prog_y=prog_y,
         unit_x=unit_x, unit_y=unit_y,
         date_x=date_x, date_y=date_y,
-        row_y=row_y, role_x=role_x,
-        div_w=div_w, div_pad=div_pad,
-        num_gap=num_gap,
+        row_y=row_y,   role_x=role_x,
+        div_h=div_h,   div_w=div_w,
+        div_pad=div_pad, num_gap=num_gap,
     )
     row = {
         "prog": prog_name if same_for_all else str(first[col_prog]),
@@ -213,20 +178,23 @@ if bg_file and xl_file and col_role:
         "num":  str(first[col_num]),
     }
 
-    with st.expander("🔍 除錯資訊（確認字型是否正確載入）"):
-        test_font = get_font(font_lg)
-        st.write(f"字型物件：{test_font}")
+    with st.expander("🔍 除錯資訊"):
+        f = get_font(font_lg)
+        st.write(f"字型：{f}")
+        try:
+            st.write(f"職務寬度：{int(f.getlength(str(first[col_role])))} px")
+        except Exception as e:
+            st.write(f"getlength 失敗：{e}")
 
     preview = make_badge(bg, row, cfg)
     st.image(preview, width=700)
 
-    # ── 產生 PDF ─────────────────────────────────────────────────
     st.divider()
     if st.button("🖨️ 產生 PDF（A4，每頁 6 張）", type="primary", use_container_width=True):
-        bg = Image.open(bg_file)
-        df = pd.read_excel(xl_file)
-
+        bg  = Image.open(bg_file)
+        df  = pd.read_excel(xl_file)
         badge_imgs = []
+
         for _, r in df.iterrows():
             row = {
                 "prog": prog_name if same_for_all else str(r[col_prog]),
@@ -250,11 +218,10 @@ if bg_file and xl_file and col_role:
                                 leftMargin=10*mm, rightMargin=10*mm,
                                 topMargin=10*mm, bottomMargin=10*mm)
 
-        # A4 可用：190mm × 277mm，3列×2欄
         cell_w = 90 * mm
         cell_h = 90 * mm
+        story  = []
 
-        story = []
         for page_start in range(0, len(paths), 6):
             page_paths = paths[page_start:page_start+6]
             while len(page_paths) < 6:
@@ -264,12 +231,8 @@ if bg_file and xl_file and col_role:
             for ri in range(3):
                 r_cells = []
                 for ci in range(2):
-                    idx = ri * 2 + ci
-                    p = page_paths[idx]
-                    if p:
-                        r_cells.append(RLImage(p, width=cell_w, height=cell_h))
-                    else:
-                        r_cells.append("")
+                    p = page_paths[ri * 2 + ci]
+                    r_cells.append(RLImage(p, width=cell_w, height=cell_h) if p else "")
                 rows.append(r_cells)
 
             tbl = Table(rows, colWidths=[cell_w, cell_w], rowHeights=[cell_h]*3)
