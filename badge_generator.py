@@ -39,17 +39,29 @@ REPO_FONTS  = scan_repo_fonts()
 ALL_FONTS   = {**REPO_FONTS, **FALLBACK_FONTS}   # repo 字型優先
 FONT_NAMES  = list(ALL_FONTS.keys())
 
-def font_index(name):
-    """取得字型在清單中的 index，找不到回傳 0"""
-    return FONT_NAMES.index(name) if name in FONT_NAMES else 0
+def font_index(preferred, fallback_key=None):
+    """
+    先找 preferred 完全比對，再找部分比對，都找不到用 fallback_key 或 0。
+    fonts/ 有字型時優先用；沒有時 fallback 到名稱相近的系統備用字型。
+    """
+    if preferred in FONT_NAMES:
+        return FONT_NAMES.index(preferred)
+    for i, n in enumerate(FONT_NAMES):
+        if preferred.lower() in n.lower():
+            return i
+    if fallback_key:
+        for i, n in enumerate(FONT_NAMES):
+            if fallback_key.lower() in n.lower():
+                return i
+    return 0
 
-# 各欄位預設字型（對應 fonts/ 資料夾的檔名，不含副檔名）
-DEF_PROG  = font_index("jf open 粉圓")        # 節目名稱
-DEF_UNIT  = font_index("jf open 粉圓")        # 使用單位
-DEF_DATE  = font_index("jf open 粉圓")        # 使用日期
-DEF_ROLE  = font_index("思源黑體 Medium")      # 職稱
-DEF_NAME  = font_index("思源黑體 Heavy")       # 姓名
-DEF_NUM   = font_index("JetBrainsMono-Thin")   # 編號
+# 各欄位預設字型
+DEF_PROG  = font_index("jf open 粉圓",       "Sans Regular")   # 節目名稱
+DEF_UNIT  = font_index("jf open 粉圓",       "Sans Regular")   # 使用單位
+DEF_DATE  = font_index("jf open 粉圓",       "Sans Regular")   # 使用日期
+DEF_ROLE  = font_index("思源黑體 Medium",    "Sans Medium")    # 職稱
+DEF_NAME  = font_index("思源黑體 Heavy",     "Sans Bold")      # 姓名
+DEF_NUM   = font_index("JetBrainsMono-Thin", "Sans Regular")   # 編號
 
 # ── 頁面設定 ────────────────────────────────────────────────────
 st.set_page_config(page_title="工作證產生器 ｜ 阿甯咕劇團", layout="wide", page_icon="🎭")
