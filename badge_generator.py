@@ -8,26 +8,29 @@ from reportlab.lib.units import mm
 from reportlab.lib import colors
 import tempfile, os
 
-# ── 固定內容 ────────────────────────────────────────────────────
-PROG_NAME = "《阿甯咕的爸鼻不見了？》"
+# ── 固定內容（不可改） ───────────────────────────────────────────
 UNIT_NAME = "阿甯咕劇團"
-DATE_STR  = "115.05.23 ～ 115.05.24"
+
+# ── 內建字型清單 ─────────────────────────────────────────────────
+BUILTIN_FONTS = {
+    "Sans Regular（黑體標準）":   "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "Sans Medium（黑體中粗）":    "/usr/share/fonts/opentype/noto/NotoSansCJK-Medium.ttc",
+    "Sans Bold（黑體粗）":        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+    "Sans Black（黑體超粗）":     "/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc",
+    "Serif Regular（明體標準）":  "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc",
+    "Serif Bold（明體粗）":       "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc",
+    "Serif Black（明體超粗）":    "/usr/share/fonts/opentype/noto/NotoSerifCJK-Black.ttc",
+}
 
 st.set_page_config(page_title="工作證產生器 ｜ 阿甯咕劇團", layout="wide", page_icon="🎭")
 
-# ── CSS 美化 ────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    .main { background: #fafafa; }
     .stButton > button {
         background: linear-gradient(135deg, #e8831a, #f5a623);
-        color: white;
-        font-weight: 700;
-        font-size: 1.1rem;
-        border: none;
-        border-radius: 12px;
-        padding: 0.6rem 1.2rem;
-        transition: all 0.3s;
+        color: white; font-weight: 700; font-size: 1.1rem;
+        border: none; border-radius: 12px;
+        padding: 0.6rem 1.2rem; transition: all 0.3s;
     }
     .stButton > button:hover {
         transform: translateY(-2px);
@@ -35,10 +38,8 @@ st.markdown("""
     }
     .info-box {
         background: linear-gradient(135deg, #fff7ed, #fef3c7);
-        border-left: 4px solid #e8831a;
-        border-radius: 8px;
-        padding: 1rem 1.2rem;
-        margin: 0.5rem 0 1rem 0;
+        border-left: 4px solid #e8831a; border-radius: 8px;
+        padding: 1rem 1.2rem; margin: 0.5rem 0 1rem 0;
     }
     .info-box p { margin: 0.2rem 0; font-size: 0.95rem; color: #444; }
     .info-box strong { color: #c05621; }
@@ -46,64 +47,129 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🎭 工作證產生器")
-st.markdown(f"""
-<div class="info-box">
-    <p>📌 <strong>節目名稱</strong>：{PROG_NAME}</p>
-    <p>🏢 <strong>使用單位</strong>：{UNIT_NAME}</p>
-    <p>📅 <strong>使用日期</strong>：{DATE_STR}</p>
-</div>
-""", unsafe_allow_html=True)
-st.caption("上傳底圖與 Excel 名單，自動產生 A4 排版 PDF（每頁 6 張，2 欄 × 3 列）")
 
-# ── 側欄：文字位置設定 ──────────────────────────────────────────
+# ── 側欄 ────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("⚙️ 版面設定")
-    st.caption("座標原點為底圖左上角，單位：像素")
 
-    badge_w = st.number_input("工作證寬度（px）", value=1353, step=10)
-    badge_h = st.number_input("工作證高度（px）", value=1210, step=10)
+    # ── 自訂字型上傳 ──────────────────────────────────────────
+    st.subheader("🔤 上傳自訂字型")
+    uploaded_fonts = st.file_uploader(
+        "上傳 .ttf / .otf 字型檔（可多選）",
+        type=["ttf", "otf"],
+        accept_multiple_files=True
+    )
 
-    st.divider()
-    st.subheader("📍 文字座標（x, y）")
-    st.caption("固定欄位")
+    # 將上傳字型存到暫存並加入選單
+    custom_font_paths = {}
+    if uploaded_fonts:
+        tmp_font_dir = tempfile.mkdtemp()
+        for uf in uploaded_fonts:
+            fp = os.path.join(tmp_font_dir, uf.name)
+            with open(fp, "wb") as f:
+                f.write(uf.read())
+            label = f"★ {os.path.splitext(uf.name)[0]}"
+            custom_font_paths[label] = fp
 
-    px1, py1 = st.columns(2)
-    prog_x = px1.number_input("節目名 X", value=60,  key="pgx")
-    prog_y = py1.number_input("節目名 Y", value=30,  key="pgy")
-
-    ux1, uy1 = st.columns(2)
-    unit_x = ux1.number_input("單位 X", value=60,  key="ux")
-    unit_y = uy1.number_input("單位 Y", value=110, key="uy")
-
-    dx1, dy1 = st.columns(2)
-    date_x = dx1.number_input("日期 X", value=60,  key="dx")
-    date_y = dy1.number_input("日期 Y", value=190, key="dy")
-
-    st.caption("變動欄位")
-    rx1, ry1 = st.columns(2)
-    role_x = rx1.number_input("職務 X", value=60,  key="rx")
-    role_y = ry1.number_input("職務 Y", value=390, key="ry")
-
-    nx1, ny1 = st.columns(2)
-    name_x = nx1.number_input("姓名 X", value=510, key="nmx")
-    name_y = ny1.number_input("姓名 Y", value=390, key="nmy")
-
-    ex1, ey1 = st.columns(2)
-    num_x = ex1.number_input("編號 X", value=970, key="ex")
-    num_y = ey1.number_input("編號 Y", value=415, key="ey")
+    # 合併：自訂字型優先顯示在最上方
+    all_fonts = {**custom_font_paths, **BUILTIN_FONTS}
+    font_names = list(all_fonts.keys())
 
     st.divider()
+
+    # ── 固定欄位內容 ──────────────────────────────────────────
+    st.subheader("📝 固定欄位內容")
+    prog_name = st.text_input("節目名稱", value="《阿甯咕的爸鼻不見了？》")
+    date_str  = st.text_input("使用日期", value="115.05.23～115.05.24")
+
+    st.divider()
+
+    # ── 尺寸 ─────────────────────────────────────────────────
+    st.subheader("📐 工作證尺寸")
+    st.caption("預設：9.5cm × 9cm @ 150dpi")
+    badge_w = st.number_input("寬度（px）", value=561, step=10)
+    badge_h = st.number_input("高度（px）", value=531, step=10)
+
+    st.divider()
+
+    # ── 字型選擇（各欄位獨立） ────────────────────────────────
+    st.subheader("🔡 各欄位字型")
+
+    def font_select(label, key, default_idx=0):
+        return st.selectbox(label, font_names, index=default_idx, key=key)
+
+    f_prog = font_select("節目名稱", "f_prog", 0)
+    f_unit = font_select("使用單位", "f_unit", 0)
+    f_date = font_select("使用日期", "f_date", 0)
+    f_role = font_select("職務",     "f_role", 2)   # 預設 Bold
+    f_name = font_select("姓名",     "f_name", 2)
+
+    st.divider()
+
+    # ── 字型大小 ─────────────────────────────────────────────
     st.subheader("🔤 字型大小")
-    font_sm  = st.slider("小字（節目/單位/日期）", 20, 80,  48)
-    font_lg  = st.slider("大字（職務/姓名）",      50, 160, 110)
-    font_num = st.slider("編號字體",               16,  60,  40)
+    font_prog = st.slider("節目名稱", 10, 50, 20)
+    font_unit = st.slider("使用單位", 10, 50, 20)
+    font_date = st.slider("使用日期", 10, 50, 20)
+    font_role = st.slider("職務",     20, 100, 46)
+    font_name = st.slider("姓名",     20, 100, 46)
+    font_num  = st.slider("編號",     10,  50, 20)
 
     txt_color = st.color_picker("文字顏色", "#1a1a1a")
 
     st.divider()
+
+    # ── 座標設定 ─────────────────────────────────────────────
+    st.subheader("📍 文字座標（x, y）")
+    st.caption("固定欄位")
+
+    px1, py1 = st.columns(2)
+    prog_x = px1.number_input("節目名 X", value=25, key="pgx")
+    prog_y = py1.number_input("節目名 Y", value=14, key="pgy")
+
+    ux1, uy1 = st.columns(2)
+    unit_x = ux1.number_input("單位 X", value=25, key="ux")
+    unit_y = uy1.number_input("單位 Y", value=48, key="uy")
+
+    dx1, dy1 = st.columns(2)
+    date_x = dx1.number_input("日期 X", value=25, key="dx")
+    date_y = dy1.number_input("日期 Y", value=82, key="dy")
+
+    st.caption("變動欄位")
+    rx1, ry1 = st.columns(2)
+    role_x = rx1.number_input("職務 X", value=25,  key="rx")
+    role_y = ry1.number_input("職務 Y", value=175, key="ry")
+
+    nx1, ny1 = st.columns(2)
+    name_x = nx1.number_input("姓名 X", value=230, key="nmx")
+    name_y = ny1.number_input("姓名 Y", value=175, key="nmy")
+
+    ex1, ey1 = st.columns(2)
+    num_x = ex1.number_input("編號 X", value=430, key="ex")
+    num_y = ey1.number_input("編號 Y", value=188, key="ey")
+
+    st.caption("職務／姓名分隔線")
+    sx1, sy1 = st.columns(2)
+    sep_x = sx1.number_input("分隔線 X", value=207, key="sx")
+    sep_y = sy1.number_input("分隔線 Y", value=178, key="sy")
+    sep_h = st.slider("分隔線高度（px）", 10, 120, 52)
+    sep_w = st.slider("分隔線粗細（px）", 1,   10,  3)
+    sep_color = st.color_picker("分隔線顏色", "#1a1a1a")
+
+    st.divider()
     st.subheader("📄 PDF 設定")
-    per_row = st.radio("每列幾張", [2, 3], index=0, horizontal=True)
+    per_row  = st.radio("每列幾張", [2, 3], index=0, horizontal=True)
     per_page = st.radio("每頁幾張", [4, 6], index=1, horizontal=True)
+
+# ── 頁面頂部資訊 ────────────────────────────────────────────────
+st.markdown(f"""
+<div class="info-box">
+    <p>📌 <strong>節目名稱</strong>：{prog_name}</p>
+    <p>🏢 <strong>使用單位</strong>：{UNIT_NAME}</p>
+    <p>📅 <strong>使用日期</strong>：{date_str}</p>
+</div>
+""", unsafe_allow_html=True)
+st.caption("上傳底圖與 Excel 名單，自動產生 A4 排版 PDF（每頁 6 張，2 欄 × 3 列）")
 
 # ── 主區：上傳 ───────────────────────────────────────────────────
 col1, col2 = st.columns(2)
@@ -124,6 +190,7 @@ with col2:
         st.caption(f"共 {len(df_preview)} 筆資料")
 
 # ── 欄位對應 ─────────────────────────────────────────────────────
+col_role = col_name = col_num = None
 if xl_file:
     df = pd.read_excel(xl_file)
     cols = df.columns.tolist()
@@ -131,7 +198,6 @@ if xl_file:
     st.subheader("📋 Excel 欄位對應")
     c1, c2, c3 = st.columns(3)
 
-    # 嘗試智慧預設
     def guess_col(keywords, cols):
         for kw in keywords:
             for c in cols:
@@ -148,67 +214,78 @@ if xl_file:
     col_num  = c3.selectbox("編號欄位", cols, index=ei)
 
 # ── 字型載入 ────────────────────────────────────────────────────
-def get_font(size):
-    paths = [
-        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/noto/NotoSansCJKtc-Regular.otf",
-        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
-        "/System/Library/Fonts/PingFang.ttc",
-        "/Library/Fonts/Arial Unicode.ttf",
-        "C:/Windows/Fonts/msjh.ttc",
-        "C:/Windows/Fonts/mingliu.ttc",
-    ]
-    for path in paths:
-        if os.path.exists(path):
-            try:
-                return ImageFont.truetype(path, size)
-            except Exception:
-                continue
-    return ImageFont.load_default()
+@st.cache_resource
+def load_font(path, size):
+    try:
+        return ImageFont.truetype(path, size)
+    except Exception:
+        return ImageFont.load_default()
+
+def get_font(font_key, size):
+    path = all_fonts.get(font_key, list(BUILTIN_FONTS.values())[0])
+    return load_font(path, size)
 
 # ── 產生單張工作證 ───────────────────────────────────────────────
 def make_badge(bg_img, role, name, num, cfg):
     img = bg_img.copy().resize((cfg["w"], cfg["h"]), Image.LANCZOS)
     draw = ImageDraw.Draw(img)
-
     c  = cfg["color"]
-    sm  = get_font(cfg["fsm"])
-    lg  = get_font(cfg["flg"])
-    nm  = get_font(cfg["fnum"])
+    sc = cfg["sep_color"]
 
-    draw.text((cfg["prog_x"], cfg["prog_y"]), f"節目名稱：{PROG_NAME}", font=sm, fill=c)
-    draw.text((cfg["unit_x"], cfg["unit_y"]), f"使用單位：{UNIT_NAME}", font=sm, fill=c)
-    draw.text((cfg["date_x"], cfg["date_y"]), f"使用日期：{DATE_STR}",  font=sm, fill=c)
-    draw.text((cfg["role_x"], cfg["role_y"]), str(role), font=lg, fill=c)
-    draw.text((cfg["name_x"], cfg["name_y"]), str(name), font=lg, fill=c)
-    draw.text((cfg["num_x"],  cfg["num_y"]),  str(num),  font=nm, fill=c)
+    draw.text((cfg["prog_x"], cfg["prog_y"]),
+              f"節目名稱：{prog_name}",
+              font=get_font(cfg["f_prog"], cfg["fs_prog"]), fill=c)
+    draw.text((cfg["unit_x"], cfg["unit_y"]),
+              f"使用單位：{UNIT_NAME}",
+              font=get_font(cfg["f_unit"], cfg["fs_unit"]), fill=c)
+    draw.text((cfg["date_x"], cfg["date_y"]),
+              f"使用日期：{date_str}",
+              font=get_font(cfg["f_date"], cfg["fs_date"]), fill=c)
+    draw.text((cfg["role_x"], cfg["role_y"]),
+              str(role),
+              font=get_font(cfg["f_role"], cfg["fs_role"]), fill=c)
+
+    # 分隔線
+    sx, sy = cfg["sep_x"], cfg["sep_y"]
+    draw.line([(sx, sy), (sx, sy + cfg["sep_h"])], fill=sc, width=cfg["sep_w"])
+
+    draw.text((cfg["name_x"], cfg["name_y"]),
+              str(name),
+              font=get_font(cfg["f_name"], cfg["fs_name"]), fill=c)
+    draw.text((cfg["num_x"],  cfg["num_y"]),
+              str(num),
+              font=get_font(cfg["f_name"], cfg["fs_num"]), fill=c)
 
     return img
 
-# ── 組 cfg ─────────────────────────────────────────────────────
 def build_cfg():
     return dict(
-        w=int(badge_w), h=int(badge_h), color=txt_color,
-        fsm=font_sm, flg=font_lg, fnum=font_num,
+        w=int(badge_w), h=int(badge_h),
+        color=txt_color, sep_color=sep_color,
+        f_prog=f_prog, fs_prog=font_prog,
+        f_unit=f_unit, fs_unit=font_unit,
+        f_date=f_date, fs_date=font_date,
+        f_role=f_role, fs_role=font_role,
+        f_name=f_name, fs_name=font_name,
+        fs_num=font_num,
         prog_x=prog_x, prog_y=prog_y,
         unit_x=unit_x, unit_y=unit_y,
         date_x=date_x, date_y=date_y,
         role_x=role_x, role_y=role_y,
         name_x=name_x, name_y=name_y,
         num_x=num_x,   num_y=num_y,
+        sep_x=sep_x,   sep_y=sep_y,
+        sep_h=sep_h,   sep_w=sep_w,
     )
 
 # ── 預覽 ─────────────────────────────────────────────────────────
-if bg_file and xl_file:
+if bg_file and xl_file and col_role:
     st.divider()
     st.subheader("👁️ 預覽第一張")
-
-    bg = Image.open(bg_file).convert("RGBA")
-    df = pd.read_excel(xl_file)
-    first = df.iloc[0]
+    bg  = Image.open(bg_file).convert("RGBA")
+    df  = pd.read_excel(xl_file)
     cfg = build_cfg()
-
+    first = df.iloc[0]
     preview = make_badge(bg,
                          role=str(first[col_role]),
                          name=str(first[col_name]),
@@ -219,9 +296,8 @@ if bg_file and xl_file:
     # ── 產生 PDF ─────────────────────────────────────────────────
     st.divider()
     if st.button("🖨️ 產生 PDF（A4，每頁 6 張）", type="primary", use_container_width=True):
-
-        bg = Image.open(bg_file).convert("RGBA")
-        df = pd.read_excel(xl_file)
+        bg  = Image.open(bg_file).convert("RGBA")
+        df  = pd.read_excel(xl_file)
         cfg = build_cfg()
 
         progress = st.progress(0, text="產生工作證中…")
@@ -236,7 +312,6 @@ if bg_file and xl_file:
 
         progress.progress(1.0, text="排版 PDF…")
 
-        # 存暫存 PNG
         tmp_dir = tempfile.mkdtemp()
         paths = []
         for i, img in enumerate(badge_imgs):
@@ -244,7 +319,6 @@ if bg_file and xl_file:
             img.convert("RGB").save(p, dpi=(150, 150))
             paths.append(p)
 
-        # PDF 排版：A4 每頁 6 張（2 欄 × 3 列）
         pdf_buf = io.BytesIO()
         doc = SimpleDocTemplate(
             pdf_buf, pagesize=A4,
@@ -252,9 +326,8 @@ if bg_file and xl_file:
             topMargin=8*mm, bottomMargin=8*mm
         )
 
-        usable_w = 210*mm - 16*mm   # ≈ 194mm
-        usable_h = 297*mm - 16*mm   # ≈ 281mm
-
+        usable_w = 210*mm - 16*mm
+        usable_h = 297*mm - 16*mm
         cols_n   = int(per_row)
         rows_n   = per_page // cols_n
         cell_w   = usable_w / cols_n
@@ -272,19 +345,14 @@ if bg_file and xl_file:
                 for ci in range(cols_n):
                     idx = ri * cols_n + ci
                     p = page_paths[idx]
-                    if p:
-                        row_cells.append(RLImage(p, width=cell_w, height=cell_h))
-                    else:
-                        row_cells.append("")
+                    row_cells.append(RLImage(p, width=cell_w, height=cell_h) if p else "")
                 rows.append(row_cells)
 
-            tbl = Table(rows,
-                        colWidths=[cell_w] * cols_n,
-                        rowHeights=[cell_h] * rows_n)
+            tbl = Table(rows, colWidths=[cell_w]*cols_n, rowHeights=[cell_h]*rows_n)
             tbl.setStyle(TableStyle([
-                ("ALIGN",  (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("GRID",   (0, 0), (-1, -1), 0.3, colors.lightgrey),
+                ("ALIGN",  (0,0), (-1,-1), "CENTER"),
+                ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+                ("GRID",   (0,0), (-1,-1), 0.3, colors.lightgrey),
             ]))
             story.append(tbl)
             if page_start + per_page < len(paths):
