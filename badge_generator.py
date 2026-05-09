@@ -282,9 +282,22 @@ def make_badge(bg_img, role, name, num, cfg):
     f_name = get_font(cfg["f_name"], cfg["fs_name"])
     f_num  = get_font(cfg["f_num"],  cfg["fs_num"])
 
-    role_w = draw.textlength(str(role), font=f_role)
-    name_w = draw.textlength(str(name), font=f_name)
-    num_w  = draw.textlength(str(num),  font=f_num)
+    def text_width(draw_obj, text, font):
+        try:
+            w = draw_obj.textlength(str(text), font=font)
+            if w > 0:
+                return w
+        except Exception:
+            pass
+        try:
+            bb = font.getbbox(str(text))
+            return bb[2] - bb[0]
+        except Exception:
+            return len(str(text)) * font.size
+
+    role_w = text_width(draw, str(role), f_role)
+    name_w = text_width(draw, str(name), f_name)
+    num_w  = text_width(draw, str(num),  f_num)
 
     sep_gap       = cfg["sep_gap"]    # 分隔線左右留白
     sep_thickness = cfg["sep_w"]
