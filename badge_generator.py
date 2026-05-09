@@ -154,12 +154,12 @@ with st.sidebar:
 
     # ── 字型大小 ─────────────────────────────────────────────
     st.subheader("🔤 字型大小")
-    font_prog = st.slider("節目名稱", 10, 50, 18)
-    font_unit = st.slider("使用單位", 10, 50, 18)
-    font_date = st.slider("使用日期", 10, 50, 18)
-    font_role = st.slider("職稱",     20, 100, 44)
-    font_name = st.slider("姓名",     20, 100, 48)
-    font_num  = st.slider("編號",     10,  50, 22)
+    font_prog = st.slider("節目名稱", 10, 50, 30)
+    font_unit = st.slider("使用單位", 10, 50, 30)
+    font_date = st.slider("使用日期", 10, 50, 30)
+    font_role = st.slider("職稱",     20, 100, 46)
+    font_name = st.slider("姓名",     20, 100, 50)
+    font_num  = st.slider("編號",     10,  50, 30)
 
     txt_color = st.color_picker("文字顏色", "#1a1a1a")
 
@@ -181,25 +181,12 @@ with st.sidebar:
     date_x = dx1.number_input("日期 X", value=25, key="dx")
     date_y = dy1.number_input("日期 Y", value=78, key="dy")
 
-    st.caption("變動欄位")
-    rx1, ry1 = st.columns(2)
-    role_x = rx1.number_input("職稱 X", value=25,  key="rx")
-    role_y = ry1.number_input("職稱 Y", value=170, key="ry")
-
-    nx1, ny1 = st.columns(2)
-    name_x = nx1.number_input("姓名 X", value=240, key="nmx")
-    name_y = ny1.number_input("姓名 Y", value=166, key="nmy")
-
-    ex1, ey1 = st.columns(2)
-    num_x = ex1.number_input("編號 X", value=445, key="ex")
-    num_y = ey1.number_input("編號 Y", value=182, key="ey")
-
-    st.caption("職稱／姓名分隔線")
-    sx1, sy1 = st.columns(2)
-    sep_x = sx1.number_input("分隔線 X", value=218, key="sx")
-    sep_y = sy1.number_input("分隔線 Y", value=172, key="sy")
-    sep_h = st.slider("分隔線高度（px）", 10, 120, 50)
-    sep_w = st.slider("分隔線粗細（px）",  1,  10,  3)
+    st.caption("職稱｜姓名 編號 整體置中設定")
+    row_y   = st.number_input("整列 Y 座標", value=168, step=2, key="row_y")
+    sep_h   = st.slider("分隔線高度（px）", 10, 120, 50)
+    sep_w   = st.slider("分隔線粗細（px）",  1,  10,  3)
+    sep_gap = st.slider("分隔線左右留白（px）", 4, 40, 14)
+    num_gap = st.slider("編號與姓名間距（px）", 4, 40, 12)
     sep_color = st.color_picker("分隔線顏色", "#1a1a1a")
 
     st.divider()
@@ -277,7 +264,9 @@ def make_badge(bg_img, role, name, num, cfg):
     draw = ImageDraw.Draw(img)
     c    = cfg["color"]
     sc   = cfg["sep_color"]
+    W    = cfg["w"]
 
+    # 固定三行
     draw.text((cfg["prog_x"], cfg["prog_y"]),
               f"節目名稱：{prog_name}",
               font=get_font(cfg["f_prog"], cfg["fs_prog"]), fill=c)
@@ -287,20 +276,41 @@ def make_badge(bg_img, role, name, num, cfg):
     draw.text((cfg["date_x"], cfg["date_y"]),
               f"使用日期：{date_str}",
               font=get_font(cfg["f_date"], cfg["fs_date"]), fill=c)
-    draw.text((cfg["role_x"], cfg["role_y"]),
-              str(role),
-              font=get_font(cfg["f_role"], cfg["fs_role"]), fill=c)
+
+    # 職稱｜姓名 編號 三者整體置中（方案B）
+    f_role = get_font(cfg["f_role"], cfg["fs_role"])
+    f_name = get_font(cfg["f_name"], cfg["fs_name"])
+    f_num  = get_font(cfg["f_num"],  cfg["fs_num"])
+
+    role_w = draw.textlength(str(role), font=f_role)
+    name_w = draw.textlength(str(name), font=f_name)
+    num_w  = draw.textlength(str(num),  font=f_num)
+
+    sep_gap       = cfg["sep_gap"]    # 分隔線左右留白
+    sep_thickness = cfg["sep_w"]
+    num_gap       = cfg["num_gap"]    # 編號與姓名間距
+
+    total_w = role_w + sep_gap + sep_thickness + sep_gap + name_w + num_gap + num_w
+    start_x = (W - total_w) / 2
+
+    row_y   = cfg["row_y"]
+    sep_h   = cfg["sep_h"]
+
+    # 職稱
+    draw.text((start_x, row_y), str(role), font=f_role, fill=c)
 
     # 分隔線
-    sx, sy = cfg["sep_x"], cfg["sep_y"]
-    draw.line([(sx, sy), (sx, sy + cfg["sep_h"])], fill=sc, width=cfg["sep_w"])
+    sep_x = start_x + role_w + sep_gap
+    draw.line([(sep_x, row_y + 4), (sep_x, row_y + sep_h)], fill=sc, width=sep_thickness)
 
-    draw.text((cfg["name_x"], cfg["name_y"]),
-              str(name),
-              font=get_font(cfg["f_name"], cfg["fs_name"]), fill=c)
-    draw.text((cfg["num_x"], cfg["num_y"]),
-              str(num),
-              font=get_font(cfg["f_num"], cfg["fs_num"]), fill=c)
+    # 姓名
+    name_x = sep_x + sep_thickness + sep_gap
+    draw.text((name_x, row_y - 2), str(name), font=f_name, fill=c)
+
+    # 編號（自動貼齊姓名右側）
+    num_x = name_x + name_w + num_gap
+    num_y = row_y + (cfg["fs_name"] - cfg["fs_num"]) // 2
+    draw.text((num_x, num_y), str(num), font=f_num, fill=c)
 
     return img
 
@@ -317,11 +327,9 @@ def build_cfg():
         prog_x=prog_x, prog_y=prog_y,
         unit_x=unit_x, unit_y=unit_y,
         date_x=date_x, date_y=date_y,
-        role_x=role_x, role_y=role_y,
-        name_x=name_x, name_y=name_y,
-        num_x=num_x,   num_y=num_y,
-        sep_x=sep_x,   sep_y=sep_y,
-        sep_h=sep_h,   sep_w=sep_w,
+        row_y=row_y,
+        sep_h=sep_h, sep_w=sep_w,
+        sep_gap=sep_gap, num_gap=num_gap,
     )
 
 # ── 預覽 ─────────────────────────────────────────────────────────
