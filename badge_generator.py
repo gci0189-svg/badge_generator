@@ -360,6 +360,21 @@ if bg_file and xl_file and col_role:
                          cfg=cfg)
     st.image(preview, width=640)
 
+    # 除錯資訊（確認字型載入）
+    with st.expander("🔍 除錯資訊（確認字型是否正確載入）"):
+        f_role_key = cfg["f_role"]
+        f_name_key = cfg["f_name"]
+        f_num_key  = cfg["f_num"]
+        path_role = ALL_FONTS.get(f_role_key, "找不到")
+        path_name = ALL_FONTS.get(f_name_key, "找不到")
+        path_num  = ALL_FONTS.get(f_num_key,  "找不到")
+        st.write(f"職稱字型：`{f_role_key}` → `{path_role}`")
+        st.write(f"姓名字型：`{f_name_key}` → `{path_name}`")
+        st.write(f"編號字型：`{f_num_key}` → `{path_num}`")
+        st.write(f"路徑存在：職稱={os.path.exists(path_role)}, 姓名={os.path.exists(path_name)}, 編號={os.path.exists(path_num)}")
+        st.write(f"FONT_DIR={FONT_DIR}")
+        st.write(f"REPO_FONTS keys={list(REPO_FONTS.keys())}")
+
     # ── 產生 PDF ─────────────────────────────────────────────────
     st.divider()
     if st.button("🖨️ 產生 PDF（A4，每頁 6 張）", type="primary", use_container_width=True):
