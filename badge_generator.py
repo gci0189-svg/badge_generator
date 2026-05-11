@@ -11,27 +11,23 @@ import tempfile, os
 # ── 固定內容（不可改） ───────────────────────────────────────────
 UNIT_NAME = "阿甯咕劇團"
 
-# ── 字型資料夾（repo 根目錄下的 fonts/） ────────────────────────
-# 嘗試多種路徑找 fonts/，確保 Streamlit Cloud 也能正確讀到
+# ── 字型資料夾 ───────────────────────────────────────────────────
 def find_font_dir():
     candidates = [
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts"),
         os.path.join(os.getcwd(), "fonts"),
-        "/app/fonts",          # Streamlit Cloud 部署路徑
-        "/mount/src/fonts",    # 部分版本的 Streamlit Cloud
+        "/app/fonts",
+        "/mount/src/fonts",
     ]
-    # 找第一個存在且有字型檔的資料夾
     for path in candidates:
         if os.path.isdir(path):
             files = [f for f in os.listdir(path) if f.lower().endswith((".ttf",".otf",".ttc"))]
             if files:
                 return path
-    # 都找不到就回傳預設（讓後續邏輯靜默處理）
     return os.path.join(os.getcwd(), "fonts")
 
 FONT_DIR = find_font_dir()
 
-# Noto 備用字型（Streamlit Cloud 系統字型）
 FALLBACK_FONTS = {
     "Sans Regular（黑體標準）":  "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "Sans Medium（黑體中粗）":   "/usr/share/fonts/opentype/noto/NotoSansCJK-Medium.ttc",
@@ -43,7 +39,6 @@ FALLBACK_FONTS = {
 }
 
 def scan_repo_fonts():
-    """掃描 fonts/ 資料夾，回傳 {顯示名稱: 路徑}"""
     found = {}
     if os.path.isdir(FONT_DIR):
         for fname in sorted(os.listdir(FONT_DIR)):
@@ -52,15 +47,11 @@ def scan_repo_fonts():
                 found[label] = os.path.join(FONT_DIR, fname)
     return found
 
-REPO_FONTS  = scan_repo_fonts()
-ALL_FONTS   = {**REPO_FONTS, **FALLBACK_FONTS}   # repo 字型優先
-FONT_NAMES  = list(ALL_FONTS.keys())
+REPO_FONTS = scan_repo_fonts()
+ALL_FONTS  = {**REPO_FONTS, **FALLBACK_FONTS}
+FONT_NAMES = list(ALL_FONTS.keys())
 
 def font_index(preferred, fallback_key=None):
-    """
-    先找 preferred 完全比對，再找部分比對，都找不到用 fallback_key 或 0。
-    fonts/ 有字型時優先用；沒有時 fallback 到名稱相近的系統備用字型。
-    """
     if preferred in FONT_NAMES:
         return FONT_NAMES.index(preferred)
     for i, n in enumerate(FONT_NAMES):
@@ -72,13 +63,12 @@ def font_index(preferred, fallback_key=None):
                 return i
     return 0
 
-# 各欄位預設字型
-DEF_PROG  = font_index("jf open 粉圓",       "Sans Regular")   # 節目名稱
-DEF_UNIT  = font_index("jf open 粉圓",       "Sans Regular")   # 使用單位
-DEF_DATE  = font_index("jf open 粉圓",       "Sans Regular")   # 使用日期
-DEF_ROLE  = font_index("思源黑體 Medium",    "Sans Medium")    # 職稱
-DEF_NAME  = font_index("思源黑體 Heavy",     "Sans Bold")      # 姓名
-DEF_NUM   = font_index("JetBrainsMono-Thin", "Sans Regular")   # 編號
+DEF_PROG = font_index("jf open 粉圓",       "Sans Regular")
+DEF_UNIT = font_index("jf open 粉圓",       "Sans Regular")
+DEF_DATE = font_index("jf open 粉圓",       "Sans Regular")
+DEF_ROLE = font_index("思源黑體 Medium",    "Sans Medium")
+DEF_NAME = font_index("思源黑體 Heavy",     "Sans Bold")
+DEF_NUM  = font_index("JetBrainsMono-Thin", "Sans Regular")
 
 # ── 頁面設定 ────────────────────────────────────────────────────
 st.set_page_config(page_title="工作證產生器 ｜ 阿甯咕劇團", layout="wide", page_icon="🎭")
@@ -116,16 +106,14 @@ st.title("🎭 工作證產生器")
 with st.sidebar:
     st.header("⚙️ 版面設定")
 
-    # ── 字型狀態提示 ─────────────────────────────────────────
     if REPO_FONTS:
-        st.markdown(f'<div class="font-hint">✅ 已載入 {len(REPO_FONTS)} 個 repo 字型<br>📂 路徑：{FONT_DIR}</div>',
+        st.markdown(f'<div class="font-hint">✅ 已載入 {len(REPO_FONTS)} 個 repo 字型</div>',
                     unsafe_allow_html=True)
     else:
         st.warning(f"⚠️ fonts/ 資料夾無字型，使用系統備用字型\n📂 找尋路徑：{FONT_DIR}")
 
     st.divider()
 
-    # ── 固定欄位內容 ─────────────────────────────────────────
     st.subheader("📝 活動資訊")
     prog_name = st.text_input("節目名稱", value="《阿甯咕的爸鼻不見了？》")
     date_str  = st.text_input("使用日期", value="115.05.23～115.05.24")
@@ -133,7 +121,6 @@ with st.sidebar:
 
     st.divider()
 
-    # ── 尺寸 ─────────────────────────────────────────────────
     st.subheader("📐 工作證尺寸")
     st.caption("預設：9.5cm × 9cm @ 150dpi")
     badge_w = st.number_input("寬度（px）", value=561, step=10)
@@ -141,7 +128,6 @@ with st.sidebar:
 
     st.divider()
 
-    # ── 字型選擇（各欄位獨立） ────────────────────────────────
     st.subheader("🔡 各欄位字型")
     f_prog = st.selectbox("節目名稱", FONT_NAMES, index=DEF_PROG, key="f_prog")
     f_unit = st.selectbox("使用單位", FONT_NAMES, index=DEF_UNIT, key="f_unit")
@@ -152,7 +138,6 @@ with st.sidebar:
 
     st.divider()
 
-    # ── 字型大小 ─────────────────────────────────────────────
     st.subheader("🔤 字型大小")
     font_prog = st.slider("節目名稱", 10, 50, 30)
     font_unit = st.slider("使用單位", 10, 50, 30)
@@ -165,36 +150,41 @@ with st.sidebar:
 
     st.divider()
 
-    # ── 座標設定 ─────────────────────────────────────────────
     st.subheader("📍 文字座標（x, y）")
     st.caption("固定欄位")
-
     px1, py1 = st.columns(2)
     prog_x = px1.number_input("節目名 X", value=25, key="pgx")
     prog_y = py1.number_input("節目名 Y", value=14, key="pgy")
-
     ux1, uy1 = st.columns(2)
     unit_x = ux1.number_input("單位 X", value=25, key="ux")
     unit_y = uy1.number_input("單位 Y", value=46, key="uy")
-
     dx1, dy1 = st.columns(2)
     date_x = dx1.number_input("日期 X", value=25, key="dx")
     date_y = dy1.number_input("日期 Y", value=78, key="dy")
 
     st.caption("職稱｜姓名 編號 整體置中設定")
     row_y   = st.number_input("整列 Y 座標", value=168, step=2, key="row_y")
-    sep_h   = st.slider("分隔線高度（px）", 10, 120, 50)
-    sep_w   = st.slider("分隔線粗細（px）",  1,  10,  3)
-    sep_gap = st.slider("分隔線左右留白（px）", 4, 40, 14)
-    num_gap = st.slider("編號與姓名間距（px）", 4, 40, 12)
+    sep_w   = st.slider("分隔線粗細（px）",      1,  10,  3)
+    sep_gap = st.slider("分隔線左右留白（px）",   4,  40, 14)
+    num_gap = st.slider("編號與姓名間距（px）",   4,  40, 12)
     sep_color = st.color_picker("分隔線顏色", "#1a1a1a")
 
     st.divider()
+
+    # ── PDF 設定（含邊界） ────────────────────────────────────
     st.subheader("📄 PDF 設定")
     per_row  = st.radio("每列幾張", [2, 3], index=0, horizontal=True)
     per_page = st.radio("每頁幾張", [4, 6], index=1, horizontal=True)
 
-# ── 頁面頂部活動資訊 ────────────────────────────────────────────
+    st.caption("列印邊界（mm）")
+    mg1, mg2 = st.columns(2)
+    margin_top    = mg1.number_input("上", value=8, min_value=0, max_value=30, key="mt")
+    margin_bottom = mg2.number_input("下", value=8, min_value=0, max_value=30, key="mb")
+    mg3, mg4 = st.columns(2)
+    margin_left   = mg3.number_input("左", value=8, min_value=0, max_value=30, key="ml")
+    margin_right  = mg4.number_input("右", value=8, min_value=0, max_value=30, key="mr")
+
+# ── 活動資訊顯示 ────────────────────────────────────────────────
 st.markdown(f"""
 <div class="info-box">
     <p>📌 <strong>節目名稱</strong>：{prog_name}</p>
@@ -206,13 +196,11 @@ st.caption("上傳底圖與 Excel 名單，自動產生 A4 排版 PDF（每頁 6
 
 # ── 主區：上傳 ───────────────────────────────────────────────────
 col1, col2 = st.columns(2)
-
 with col1:
     st.subheader("📁 底圖")
     bg_file = st.file_uploader("上傳底圖（JPG / PNG）", type=["jpg", "jpeg", "png"])
     if bg_file:
         st.image(bg_file, caption="目前底圖", use_container_width=True)
-
 with col2:
     st.subheader("📊 人員名單")
     xl_file = st.file_uploader("上傳 Excel 名單", type=["xlsx", "xls"])
@@ -241,7 +229,6 @@ if xl_file:
     ri = guess_col(["職務", "職稱", "role", "title"], cols)
     ni = guess_col(["姓名", "名字", "name"], cols)
     ei = guess_col(["編號", "號碼", "num", "no", "id"], cols)
-
     col_role = c1.selectbox("職務欄位", cols, index=ri)
     col_name = c2.selectbox("姓名欄位", cols, index=ni)
     col_num  = c3.selectbox("編號欄位", cols, index=ei)
@@ -265,7 +252,6 @@ def make_badge(bg_img, role, name, num, cfg):
     sc   = cfg["sep_color"]
     W    = cfg["w"]
 
-    # 固定三行
     draw.text((cfg["prog_x"], cfg["prog_y"]),
               f"節目名稱：{prog_name}",
               font=get_font(cfg["f_prog"], cfg["fs_prog"]), fill=c)
@@ -276,13 +262,11 @@ def make_badge(bg_img, role, name, num, cfg):
               f"使用日期：{date_str}",
               font=get_font(cfg["f_date"], cfg["fs_date"]), fill=c)
 
-    # 職稱｜姓名 編號 三者整體置中（方案B）
     f_role = get_font(cfg["f_role"], cfg["fs_role"])
     f_name = get_font(cfg["f_name"], cfg["fs_name"])
     f_num  = get_font(cfg["f_num"],  cfg["fs_num"])
 
     def text_width(text, font):
-        # getbbox 優先（對 .otf 最穩定），textlength 備用
         try:
             bb = font.getbbox(str(text))
             w = bb[2] - bb[0]
@@ -296,7 +280,6 @@ def make_badge(bg_img, role, name, num, cfg):
                 return w
         except Exception:
             pass
-        # 最後備用：用單字寬度估算
         try:
             single = font.getbbox("國")[2] - font.getbbox("國")[0]
             return single * len(str(text))
@@ -307,20 +290,16 @@ def make_badge(bg_img, role, name, num, cfg):
     name_w = text_width(str(name), f_name)
     num_w  = text_width(str(num),  f_num)
 
-    sep_gap       = cfg["sep_gap"]    # 分隔線左右留白
+    sep_gap       = cfg["sep_gap"]
     sep_thickness = cfg["sep_w"]
-    num_gap       = cfg["num_gap"]    # 編號與姓名間距
+    num_gap       = cfg["num_gap"]
 
     total_w = role_w + sep_gap + sep_thickness + sep_gap + name_w + num_gap + num_w
     start_x = (W - total_w) / 2
-
     row_y   = cfg["row_y"]
-    sep_h   = cfg["sep_h"]
 
-    # 職稱
     draw.text((start_x, row_y), str(role), font=f_role, fill=c)
 
-    # 分隔線：自動對齊文字實際頂部與底部
     sep_x      = start_x + role_w + sep_gap
     role_top   = f_role.getbbox(str(role))[1]
     role_bot   = f_role.getbbox(str(role))[3]
@@ -330,11 +309,9 @@ def make_badge(bg_img, role, name, num, cfg):
     sep_bottom = row_y - 2 + max(role_bot, name_bot)
     draw.line([(sep_x, sep_top), (sep_x, sep_bottom)], fill=sc, width=sep_thickness)
 
-    # 姓名
     name_x = sep_x + sep_thickness + sep_gap
     draw.text((name_x, row_y - 2), str(name), font=f_name, fill=c)
 
-    # 編號：底部對齊姓名底部再往上 10px
     name_h = f_name.getbbox(str(name))[3]
     num_h  = f_num.getbbox(str(num))[3]
     num_x  = name_x + name_w + num_gap
@@ -356,90 +333,154 @@ def build_cfg():
         prog_x=prog_x, prog_y=prog_y,
         unit_x=unit_x, unit_y=unit_y,
         date_x=date_x, date_y=date_y,
-        row_y=row_y,
-        sep_h=sep_h, sep_w=sep_w,
-        sep_gap=sep_gap, num_gap=num_gap,
+        row_y=int(row_y),
+        sep_w=sep_w, sep_gap=sep_gap, num_gap=num_gap,
     )
 
-# ── 預覽 ─────────────────────────────────────────────────────────
+# ── A4 預覽圖產生 ────────────────────────────────────────────────
+def make_a4_preview(badge_imgs, page_idx, cols_n, rows_n, mg_t, mg_b, mg_l, mg_r):
+    """
+    把第 page_idx 頁的工作證排成 A4 比例預覽圖（白底）
+    A4: 210 x 297mm → 比例 1:1.414，預覽圖寬固定 800px
+    """
+    PW, PH = 800, int(800 * 297 / 210)
+    preview = Image.new("RGB", (PW, PH), "white")
+
+    # 邊界轉換（mm → px，以 PW=800px=210mm 為基準）
+    scale = PW / 210
+    pad_t = int(mg_t * scale)
+    pad_b = int(mg_b * scale)
+    pad_l = int(mg_l * scale)
+    pad_r = int(mg_r * scale)
+
+    usable_w = PW - pad_l - pad_r
+    usable_h = PH - pad_t - pad_b
+
+    cell_w = usable_w // cols_n
+    cell_h = usable_h // rows_n
+
+    per_page = cols_n * rows_n
+    start    = page_idx * per_page
+    page_imgs = badge_imgs[start : start + per_page]
+
+    for idx, bimg in enumerate(page_imgs):
+        ri = idx // cols_n
+        ci = idx % cols_n
+        x  = pad_l + ci * cell_w
+        y  = pad_t + ri * cell_h
+        # 等比縮放填入格子（保留比例）
+        bimg_rgb = bimg.convert("RGB")
+        bw, bh   = bimg_rgb.size
+        ratio    = min(cell_w / bw, cell_h / bh)
+        nw, nh   = int(bw * ratio), int(bh * ratio)
+        resized  = bimg_rgb.resize((nw, nh), Image.LANCZOS)
+        # 置中放入格子
+        ox = x + (cell_w - nw) // 2
+        oy = y + (cell_h - nh) // 2
+        preview.paste(resized, (ox, oy))
+
+    # 畫格線
+    draw = ImageDraw.Draw(preview)
+    for ci in range(cols_n + 1):
+        x = pad_l + ci * cell_w
+        draw.line([(x, pad_t), (x, pad_t + rows_n * cell_h)], fill="#cccccc", width=1)
+    for ri in range(rows_n + 1):
+        y = pad_t + ri * cell_h
+        draw.line([(pad_l, y), (pad_l + cols_n * cell_w, y)], fill="#cccccc", width=1)
+    # 頁面外框
+    draw.rectangle([(0, 0), (PW-1, PH-1)], outline="#aaaaaa", width=2)
+
+    return preview
+
+# ── 主邏輯 ───────────────────────────────────────────────────────
 if bg_file and xl_file and col_role:
     st.divider()
-    st.subheader("👁️ 預覽第一張")
-    bg    = Image.open(bg_file).convert("RGBA")
-    df    = pd.read_excel(xl_file)
-    cfg   = build_cfg()
-    first = df.iloc[0]
-    preview = make_badge(bg,
-                         role=str(first[col_role]),
-                         name=str(first[col_name]),
-                         num=str(first[col_num]),
-                         cfg=cfg)
-    st.image(preview, width=640)
+    bg  = Image.open(bg_file).convert("RGBA")
+    df  = pd.read_excel(xl_file)
+    cfg = build_cfg()
 
-    # 除錯資訊（確認字型載入）
-    with st.expander("🔍 除錯資訊（確認字型是否正確載入）"):
-        f_role_key = cfg["f_role"]
-        f_name_key = cfg["f_name"]
-        f_num_key  = cfg["f_num"]
-        path_role = ALL_FONTS.get(f_role_key, "找不到")
-        path_name = ALL_FONTS.get(f_name_key, "找不到")
-        path_num  = ALL_FONTS.get(f_num_key,  "找不到")
-        st.write(f"職稱字型：`{f_role_key}` → `{path_role}`")
-        st.write(f"姓名字型：`{f_name_key}` → `{path_name}`")
-        st.write(f"編號字型：`{f_num_key}` → `{path_num}`")
-        st.write(f"路徑存在：職稱={os.path.exists(path_role)}, 姓名={os.path.exists(path_name)}, 編號={os.path.exists(path_num)}")
-        try:
-            from PIL import ImageFont, ImageDraw, Image as PILImage
-            _img = PILImage.new("RGB", (10,10))
-            _draw = ImageDraw.Draw(_img)
-            _fr = ImageFont.truetype(path_role, cfg["fs_role"])
-            _fn = ImageFont.truetype(path_name, cfg["fs_name"])
-            _bb_r = _fr.getbbox(str(first[col_role]))
-            _bb_n = _fn.getbbox(str(first[col_name]))
-            st.write(f"職稱 getbbox 寬度: {_bb_r[2]-_bb_r[0]}")
-            st.write(f"姓名 getbbox 寬度: {_bb_n[2]-_bb_n[0]}")
-        except Exception as e:
-            st.write(f"寬度計算錯誤: {e}")
-        st.write(f"FONT_DIR={FONT_DIR}")
-        st.write(f"REPO_FONTS keys={list(REPO_FONTS.keys())}")
+    # 產生所有工作證圖（供預覽與 PDF 共用）
+    all_badges = []
+    for _, r in df.iterrows():
+        all_badges.append(make_badge(bg,
+                                     role=str(r[col_role]),
+                                     name=str(r[col_name]),
+                                     num=str(r[col_num]),
+                                     cfg=cfg))
 
-    # ── 產生 PDF ─────────────────────────────────────────────────
+    cols_n   = int(per_row)
+    rows_n   = per_page // cols_n
+    total_pages = -(-len(all_badges) // per_page)
+
+    # ── 單張預覽 ─────────────────────────────────────────────
+    st.subheader("👁️ 單張預覽")
+    st.image(all_badges[0].convert("RGB"), width=500)
+
+    # ── A4 整頁預覽（可翻頁） ────────────────────────────────
+    st.divider()
+    st.subheader("📄 A4 整頁預覽")
+
+    if "preview_page" not in st.session_state:
+        st.session_state.preview_page = 0
+    if st.session_state.preview_page >= total_pages:
+        st.session_state.preview_page = 0
+
+    nav1, nav2, nav3 = st.columns([1, 3, 1])
+    with nav1:
+        if st.button("◀ 上一頁", use_container_width=True,
+                     disabled=st.session_state.preview_page == 0):
+            st.session_state.preview_page -= 1
+            st.rerun()
+    with nav2:
+        st.markdown(
+            f"<div style='text-align:center;padding-top:8px;font-weight:600;'>"
+            f"第 {st.session_state.preview_page + 1} 頁 / 共 {total_pages} 頁</div>",
+            unsafe_allow_html=True
+        )
+    with nav3:
+        if st.button("下一頁 ▶", use_container_width=True,
+                     disabled=st.session_state.preview_page >= total_pages - 1):
+            st.session_state.preview_page += 1
+            st.rerun()
+
+    a4_img = make_a4_preview(
+        all_badges,
+        page_idx = st.session_state.preview_page,
+        cols_n   = cols_n,
+        rows_n   = rows_n,
+        mg_t     = margin_top,
+        mg_b     = margin_bottom,
+        mg_l     = margin_left,
+        mg_r     = margin_right,
+    )
+    st.image(a4_img, use_container_width=True)
+
+    # ── 產生 PDF ─────────────────────────────────────────────
     st.divider()
     if st.button("🖨️ 產生 PDF（A4，每頁 6 張）", type="primary", use_container_width=True):
-        bg  = Image.open(bg_file).convert("RGBA")
-        df  = pd.read_excel(xl_file)
-        cfg = build_cfg()
-
-        progress = st.progress(0, text="產生工作證中…")
-        badge_imgs = []
-        for i, (_, r) in enumerate(df.iterrows()):
-            badge_imgs.append(make_badge(bg,
-                                         role=str(r[col_role]),
-                                         name=str(r[col_name]),
-                                         num=str(r[col_num]),
-                                         cfg=cfg))
-            progress.progress((i + 1) / len(df), text=f"產生中 {i+1}/{len(df)}…")
-
-        progress.progress(1.0, text="排版 PDF…")
-
+        progress = st.progress(0, text="存檔中…")
         tmp_dir = tempfile.mkdtemp()
         paths   = []
-        for i, img in enumerate(badge_imgs):
+        for i, img in enumerate(all_badges):
             p = os.path.join(tmp_dir, f"badge_{i:03d}.png")
             img.convert("RGB").save(p, dpi=(150, 150))
             paths.append(p)
+            progress.progress((i + 1) / len(all_badges), text=f"存檔 {i+1}/{len(all_badges)}…")
+
+        progress.progress(1.0, text="排版 PDF…")
 
         pdf_buf = io.BytesIO()
         doc = SimpleDocTemplate(
             pdf_buf, pagesize=A4,
-            leftMargin=8*mm, rightMargin=8*mm,
-            topMargin=8*mm, bottomMargin=8*mm
+            leftMargin   = margin_left   * mm,
+            rightMargin  = margin_right  * mm,
+            topMargin    = margin_top    * mm,
+            bottomMargin = margin_bottom * mm,
         )
 
-        usable_w = 210*mm - 16*mm
-        usable_h = 297*mm - 16*mm
-        cols_n   = int(per_row)
-        rows_n   = per_page // cols_n
+        # 自動計算 cell 大小，確保塞得進去
+        usable_w = (210 - margin_left - margin_right) * mm
+        usable_h = (297 - margin_top  - margin_bottom) * mm
         cell_w   = usable_w / cols_n
         cell_h   = usable_h / rows_n
 
@@ -449,16 +490,16 @@ if bg_file and xl_file and col_role:
             while len(page_paths) < per_page:
                 page_paths.append(None)
 
-            rows = []
+            tbl_rows = []
             for ri in range(rows_n):
                 row_cells = []
                 for ci in range(cols_n):
                     idx = ri * cols_n + ci
                     p   = page_paths[idx]
                     row_cells.append(RLImage(p, width=cell_w, height=cell_h) if p else "")
-                rows.append(row_cells)
+                tbl_rows.append(row_cells)
 
-            tbl = Table(rows, colWidths=[cell_w]*cols_n, rowHeights=[cell_h]*rows_n)
+            tbl = Table(tbl_rows, colWidths=[cell_w]*cols_n, rowHeights=[cell_h]*rows_n)
             tbl.setStyle(TableStyle([
                 ("ALIGN",  (0,0), (-1,-1), "CENTER"),
                 ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
@@ -471,8 +512,7 @@ if bg_file and xl_file and col_role:
         doc.build(story)
         pdf_buf.seek(0)
 
-        total_pages = -(-len(badge_imgs) // per_page)
-        st.success(f"✅ 共產生 {len(badge_imgs)} 張工作證，{total_pages} 頁 PDF")
+        st.success(f"✅ 共產生 {len(all_badges)} 張工作證，{total_pages} 頁 PDF")
         st.download_button(
             label="⬇️ 下載 PDF",
             data=pdf_buf,
