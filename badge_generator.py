@@ -171,11 +171,11 @@ with st.sidebar:
 
     st.caption("Y 軸微調（正數往下，負數往上）")
     oy1, oy2 = st.columns(2)
-    oy_role = oy1.number_input("職稱 Y 偏移", value=0, step=1, key="oy_role")
-    oy_name = oy2.number_input("姓名 Y 偏移", value=0, step=1, key="oy_name")
+    oy_role = oy1.number_input("職稱 Y 偏移", value=15, step=1, key="oy_role")
+    oy_name = oy2.number_input("姓名 Y 偏移", value=15, step=1, key="oy_name")
     oy3, oy4 = st.columns(2)
-    oy_sep  = oy3.number_input("分隔線 Y 偏移", value=0, step=1, key="oy_sep")
-    oy_num  = oy4.number_input("編號 Y 偏移",   value=0, step=1, key="oy_num")
+    oy_sep  = oy3.number_input("分隔線 Y 偏移", value=30, step=1, key="oy_sep")
+    oy_num  = oy4.number_input("編號 Y 偏移",   value=15, step=1, key="oy_num")
 
     st.divider()
 
