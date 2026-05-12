@@ -116,7 +116,7 @@ with st.sidebar:
 
     st.subheader("📝 活動資訊")
     prog_name = st.text_input("節目名稱", value="《阿甯咕的爸鼻不見了？》")
-    date_str  = st.text_input("使用日期", value="115.05.18～115.05.24")  # ← 修改預設日期
+    date_str  = st.text_input("使用日期", value="115.05.18～115.05.24")
     st.caption(f"使用單位：{UNIT_NAME}（固定）")
 
     st.divider()
@@ -252,6 +252,7 @@ def make_badge(bg_img, role, name, num, cfg):
     sc   = cfg["sep_color"]
     W    = cfg["w"]
 
+    # ── 固定三行 ──────────────────────────────────────────────
     draw.text((cfg["prog_x"], cfg["prog_y"]),
               f"節目名稱：{prog_name}",
               font=get_font(cfg["f_prog"], cfg["fs_prog"]), fill=c)
@@ -262,107 +263,97 @@ def make_badge(bg_img, role, name, num, cfg):
               f"使用日期：{date_str}",
               font=get_font(cfg["f_date"], cfg["fs_date"]), fill=c)
 
-    f_role_fnt = get_font(cfg["f_role"], cfg["fs_role"])
-    f_name_fnt = get_font(cfg["f_name"], cfg["fs_name"])
-    f_num_fnt  = get_font(cfg["f_num"],  cfg["fs_num"])
+    f_role = get_font(cfg["f_role"], cfg["fs_role"])
+    f_name = get_font(cfg["f_name"], cfg["fs_name"])
+    f_num  = get_font(cfg["f_num"],  cfg["fs_num"])
 
-    # ── 輔助：量測文字寬高 ───────────────────────────────
-    def text_size(text, font):
+    sep_gap       = cfg["sep_gap"]
+    sep_thickness = cfg["sep_w"]
+    num_gap       = cfg["num_gap"]
+    row_y         = cfg["row_y"]
+
+    def text_width(text, font):
         try:
             bb = font.getbbox(str(text))
-            return bb[2] - bb[0], bb[3] - bb[1]
+            w  = bb[2] - bb[0]
+            if w > 0:
+                return float(w)
         except Exception:
-            try:
-                w = draw.textlength(str(text), font=font)
-                return w, cfg["fs_role"]
-            except Exception:
-                return cfg["fs_role"] * len(str(text)), cfg["fs_role"]
+            pass
+        try:
+            w = draw.textlength(str(text), font=font)
+            if w > 0:
+                return w
+        except Exception:
+            pass
+        try:
+            single = font.getbbox("國")[2] - font.getbbox("國")[0]
+            return single * len(str(text))
+        except Exception:
+            return cfg["fs_role"] * len(str(text))
 
-    # ── 職稱自動換行（最大寬度 = 工作證寬的 38%） ────────
-    MAX_ROLE_W = int(W * 0.38)
+    def text_height(text, font):
+        try:
+            bb = font.getbbox(str(text))
+            return bb[3] - bb[1]
+        except Exception:
+            return cfg["fs_role"]
 
-    def wrap_text(text, font, max_w):
-        """逐字切行，回傳 list[str]"""
-        lines   = []
-        current = ""
-        for ch in str(text):
-            test = current + ch
-            w, _ = text_size(test, font)
-            if w <= max_w:
-                current = test
-            else:
-                if current:
-                    lines.append(current)
-                current = ch
-        if current:
-            lines.append(current)
-        return lines if lines else [str(text)]
+    # ── 職稱：尊重 Excel 換行（\n） ─────────────────────────
+    role_str   = str(role)
+    role_lines = role_str.splitlines() if role_str else [role_str]
+    line_h     = text_height(role_lines[0] if role_lines else "國", f_role)
+    line_gap   = int(line_h * 0.15)
+    role_w     = max(text_width(l, f_role) for l in role_lines)
+    role_total_h = len(role_lines) * line_h + (len(role_lines) - 1) * line_gap
 
-    role_lines    = wrap_text(str(role), f_role_fnt, MAX_ROLE_W)
-    role_line_h   = text_size("國", f_role_fnt)[1]          # 單行高度基準
-    role_line_gap = int(role_line_h * 0.15)                  # 行距
-    role_block_h  = role_line_h * len(role_lines) + role_line_gap * (len(role_lines) - 1)
-    role_block_w  = max(text_size(l, f_role_fnt)[0] for l in role_lines)
+    # ── 判斷姓名是否有效 ─────────────────────────────────────
+    name_str  = str(name).strip()
+    has_name  = name_str and name_str.lower() not in ("nan", "none", "")
 
-    # ── 判斷姓名 / 編號是否有效 ──────────────────────────
-    has_name = str(name).strip() not in ("", "nan", "None", "NaN")
-    has_num  = str(num).strip()  not in ("", "nan", "None", "NaN")
+    num_w    = text_width(str(num), f_num)
+    num_h_bb = text_height(str(num), f_num)
 
-    sep_gap_px    = cfg["sep_gap"]
-    sep_thickness = cfg["sep_w"]
-    num_gap_px    = cfg["num_gap"]
-
-    name_w, name_h = text_size(str(name), f_name_fnt) if has_name else (0, 0)
-    num_w,  num_h  = text_size(str(num),  f_num_fnt)  if has_num  else (0, 0)
-
-    # ── 計算整列總寬，水平置中 ───────────────────────────
-    right_part_w = 0
     if has_name:
-        right_part_w += sep_gap_px + sep_thickness + sep_gap_px + name_w
-        if has_num:
-            right_part_w += num_gap_px + num_w
-    elif has_num:
-        # 無姓名：職稱直接接編號，不畫分隔線
-        right_part_w += num_gap_px + num_w
-
-    total_w = role_block_w + right_part_w
-    start_x = (W - total_w) / 2
-    row_y   = cfg["row_y"]
-
-    # ── 整列參考高度（職稱區塊 vs 姓名高度取最大） ───────
-    ref_h = max(role_block_h, name_h if has_name else 0)
-
-    # ── 繪製職稱（多行，垂直置中對齊整列） ──────────────
-    role_start_y = row_y + (ref_h - role_block_h) // 2
-    for li, line in enumerate(role_lines):
-        ly = role_start_y + li * (role_line_h + role_line_gap)
-        draw.text((start_x, ly), line, font=f_role_fnt, fill=c)
-
-    # ── 繪製分隔線 + 姓名 + 編號 ────────────────────────
-    if has_name:
-        sep_x      = start_x + role_block_w + sep_gap_px
-        sep_top    = row_y
-        sep_bottom = row_y + ref_h
-        draw.line([(sep_x, sep_top), (sep_x, sep_bottom)],
-                  fill=sc, width=sep_thickness)
-
-        name_x = sep_x + sep_thickness + sep_gap_px
-        name_y = row_y + (ref_h - name_h) // 2
-        draw.text((name_x, name_y), str(name), font=f_name_fnt, fill=c)
-
-        if has_num:
-            num_x = name_x + name_w + num_gap_px
-            num_y = row_y + ref_h - num_h          # 右下對齊
-            draw.text((num_x, num_y), str(num), font=f_num_fnt, fill=c)
-
+        name_w    = text_width(name_str, f_name)
+        name_h_bb = text_height(name_str, f_name)
+        total_w   = role_w + sep_gap + sep_thickness + sep_gap + name_w + num_gap + num_w
     else:
-        # 無姓名：編號緊接職稱右側，右下對齊
-        if has_num:
-            num_x = start_x + role_block_w + num_gap_px
-            num_y = row_y + ref_h - num_h
-            draw.text((num_x, num_y), str(num), font=f_num_fnt, fill=c)
+        name_w  = 0
+        total_w = role_w + num_gap + num_w
+
+    start_x = (W - total_w) / 2
+
+    # ── 畫職稱（多行，垂直置中在 row_y） ─────────────────────
+    role_start_y = row_y - role_total_h // 2
+    for li, line in enumerate(role_lines):
+        ly = role_start_y + li * (line_h + line_gap)
+        draw.text((start_x, ly), line, font=f_role, fill=c)
+
+    if has_name:
+        # 分隔線：拉滿職稱總高度
+        sep_x      = start_x + role_w + sep_gap
+        sep_top    = role_start_y
+        sep_bottom = role_start_y + role_total_h
+        draw.line([(sep_x, sep_top), (sep_x, sep_bottom)], fill=sc, width=sep_thickness)
+
+        # 姓名：垂直置中對齊整列
+        name_x = sep_x + sep_thickness + sep_gap
+        name_y = row_y - name_h_bb // 2
+        draw.text((name_x, name_y), name_str, font=f_name, fill=c)
+
+        # 編號：底部對齊姓名底部往上 10px
+        num_x = name_x + name_w + num_gap
+        num_y = name_y + name_h_bb - num_h_bb - 10
+        draw.text((num_x, num_y), str(num), font=f_num, fill=c)
+    else:
+        # 無姓名：職稱＋編號整體置中，編號貼右側
+        num_x = start_x + role_w + num_gap
+        num_y = row_y - num_h_bb // 2
+        draw.text((num_x, num_y), str(num), font=f_num, fill=c)
 
     return img
+
 
 def build_cfg():
     return dict(
