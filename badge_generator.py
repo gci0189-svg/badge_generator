@@ -605,11 +605,30 @@ if bg_file:
 
     quick_data = []
     for qi in range(st.session_state.quick_rows):
+        st.markdown(f"**第 {qi+1} 筆**")
         qa, qb, qc_ = st.columns([3, 3, 1])
-        role_val = qa.text_input("職稱", key=f"q_role_{qi}", placeholder="例：導演")
-        name_val = qb.text_input("姓名", key=f"q_name_{qi}", placeholder="例：高天恒（留空則不顯示）")
-        num_val  = qc_.text_input("編號", key=f"q_num_{qi}",  placeholder="1")
+        role_val = qa.text_area("職稱（可換行）", key=f"q_role_{qi}",
+                                placeholder="例：燈光設計暨\n技術總監",
+                                height=90)
+        name_val = qb.text_input("姓名", key=f"q_name_{qi}",
+                                 placeholder="例：周佳儀（留空則不顯示）")
+        num_val  = qc_.text_input("編號", key=f"q_num_{qi}", placeholder="1")
         quick_data.append((role_val, name_val, num_val))
+        st.divider()
+
+    # ── 快速預覽第一筆 ────────────────────────────────────────
+    first_valid = next(((r,n,u) for r,n,u in quick_data if r.strip()), None)
+    if first_valid:
+        st.caption("👁️ 第一筆預覽")
+        bg_prev = Image.open(bg_file).convert("RGBA")
+        cfg_prev = build_cfg()
+        r0, n0, u0 = first_valid
+        prev_img = make_badge(bg_prev,
+                              role=r0,
+                              name=n0 if n0.strip() else "nan",
+                              num=u0 if u0.strip() else "",
+                              cfg=cfg_prev)
+        st.image(prev_img.convert("RGB"), width=400)
 
     if st.button("🖨️ 快速產生 PDF", type="primary", use_container_width=True):
         # 過濾掉職稱為空的列
