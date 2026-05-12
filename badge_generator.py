@@ -67,7 +67,7 @@ DEF_PROG = font_index("jf open 粉圓",       "Sans Regular")
 DEF_UNIT = font_index("jf open 粉圓",       "Sans Regular")
 DEF_DATE = font_index("jf open 粉圓",       "Sans Regular")
 DEF_ROLE = font_index("思源黑體 Medium",    "Sans Medium")
-DEF_NAME = font_index("思源黑體 Heavy",     "Sans Bold")
+DEF_NAME = font_index("思源黑體 Medium",     "Sans Bold")
 DEF_NUM  = font_index("JetBrainsMono-Thin", "Sans Regular")
 
 # ── 頁面設定 ────────────────────────────────────────────────────
