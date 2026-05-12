@@ -389,7 +389,7 @@ def make_a4_preview(badge_imgs, page_idx, cols_n, rows_n, mg_t, mg_b, mg_l, mg_r
     pad_r = int(mg_r * scale)
 
     usable_w = PW - pad_l - pad_r
-    usable_h = PH - pad_t - pad_b
+    usable_h = PH - pad_t - pad_b - int(4 * scale)  # 安全邊距
 
     cell_w = usable_w // cols_n
     cell_h = usable_h // rows_n
@@ -513,9 +513,9 @@ if bg_file and xl_file and col_role:
             bottomMargin = margin_bottom * mm,
         )
 
-        # 自動計算 cell 大小，確保塞得進去
+        # 自動計算 cell 大小，扣除安全邊距確保三列塞得進去
         usable_w = (210 - margin_left - margin_right) * mm
-        usable_h = (297 - margin_top  - margin_bottom) * mm
+        usable_h = (297 - margin_top  - margin_bottom) * mm - 4  # 4pt 安全邊距
         cell_w   = usable_w / cols_n
         cell_h   = usable_h / rows_n
 
