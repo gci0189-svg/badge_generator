@@ -67,7 +67,7 @@ DEF_PROG = font_index("jf open 粉圓",       "Sans Regular")
 DEF_UNIT = font_index("jf open 粉圓",       "Sans Regular")
 DEF_DATE = font_index("jf open 粉圓",       "Sans Regular")
 DEF_ROLE = font_index("思源黑體 Medium",    "Sans Medium")
-DEF_NAME = font_index("思源黑體 Medium",     "Sans Bold")
+DEF_NAME = font_index("思源黑體 Medium",    "Sans Medium")    # 姓名
 DEF_NUM  = font_index("JetBrainsMono-Thin", "Sans Regular")
 
 # ── 頁面設定 ────────────────────────────────────────────────────
@@ -581,3 +581,104 @@ elif not bg_file:
     st.warning("⚠️ 請上傳底圖")
 elif not xl_file:
     st.warning("⚠️ 請上傳 Excel 名單")
+
+# ── 快速製作（不需 Excel） ──────────────────────────────────────
+if bg_file:
+    st.divider()
+    st.subheader("⚡ 快速製作（不需 Excel）")
+    st.caption("臨時少量製作，直接填入資料，最多 10 筆")
+
+    if "quick_rows" not in st.session_state:
+        st.session_state.quick_rows = 1
+
+    qc1, qc2 = st.columns([1, 5])
+    with qc1:
+        if st.button("＋ 新增一筆", use_container_width=True):
+            if st.session_state.quick_rows < 10:
+                st.session_state.quick_rows += 1
+                st.rerun()
+    with qc2:
+        if st.button("－ 刪除最後一筆", use_container_width=True):
+            if st.session_state.quick_rows > 1:
+                st.session_state.quick_rows -= 1
+                st.rerun()
+
+    quick_data = []
+    for qi in range(st.session_state.quick_rows):
+        qa, qb, qc_ = st.columns([3, 3, 1])
+        role_val = qa.text_input("職稱", key=f"q_role_{qi}", placeholder="例：導演")
+        name_val = qb.text_input("姓名", key=f"q_name_{qi}", placeholder="例：高天恒（留空則不顯示）")
+        num_val  = qc_.text_input("編號", key=f"q_num_{qi}",  placeholder="1")
+        quick_data.append((role_val, name_val, num_val))
+
+    if st.button("🖨️ 快速產生 PDF", type="primary", use_container_width=True):
+        # 過濾掉職稱為空的列
+        valid = [(r, n, u) for r, n, u in quick_data if r.strip()]
+        if not valid:
+            st.warning("⚠️ 請至少填入一筆職稱")
+        else:
+            bg_q  = Image.open(bg_file).convert("RGBA")
+            cfg_q = build_cfg()
+
+            q_badges = []
+            for r, n, u in valid:
+                q_badges.append(make_badge(bg_q,
+                                           role=r,
+                                           name=n if n.strip() else "nan",
+                                           num=u if u.strip() else "",
+                                           cfg=cfg_q))
+
+            tmp_dir = tempfile.mkdtemp()
+            q_paths = []
+            for i, img in enumerate(q_badges):
+                p = os.path.join(tmp_dir, f"quick_{i:03d}.png")
+                img.convert("RGB").save(p, dpi=(150, 150))
+                q_paths.append(p)
+
+            cols_n = int(per_row)
+            rows_n = per_page // cols_n
+            cell_w_q = (210 - margin_left - margin_right) * mm / cols_n
+            cell_h_q = ((297 - margin_top - margin_bottom) * mm - 12) / rows_n
+
+            pdf_q = io.BytesIO()
+            doc_q = SimpleDocTemplate(
+                pdf_q, pagesize=A4,
+                leftMargin=margin_left*mm, rightMargin=margin_right*mm,
+                topMargin=margin_top*mm,   bottomMargin=margin_bottom*mm,
+            )
+            story_q = []
+            for page_start in range(0, len(q_paths), per_page):
+                page_paths = q_paths[page_start : page_start + per_page]
+                while len(page_paths) < per_page:
+                    page_paths.append(None)
+
+                tbl_rows = []
+                for ri in range(rows_n):
+                    row_cells = []
+                    for ci in range(cols_n):
+                        idx = ri * cols_n + ci
+                        p   = page_paths[idx]
+                        row_cells.append(RLImage(p, width=cell_w_q, height=cell_h_q) if p else "")
+                    tbl_rows.append(row_cells)
+
+                tbl = Table(tbl_rows, colWidths=[cell_w_q]*cols_n, rowHeights=[cell_h_q]*rows_n)
+                tbl.setStyle(TableStyle([
+                    ("ALIGN",  (0,0), (-1,-1), "CENTER"),
+                    ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+                    ("GRID",   (0,0), (-1,-1), 0.3, colors.lightgrey),
+                ]))
+                story_q.append(tbl)
+                if page_start + per_page < len(q_paths):
+                    story_q.append(PageBreak())
+
+            doc_q.build(story_q)
+            pdf_q.seek(0)
+
+            st.success(f"✅ 共產生 {len(valid)} 張工作證")
+            st.download_button(
+                label="⬇️ 下載快速製作 PDF",
+                data=pdf_q,
+                file_name="工作證_快速製作.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
