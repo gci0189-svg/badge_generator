@@ -163,11 +163,19 @@ with st.sidebar:
     date_y = dy1.number_input("日期 Y", value=78, key="dy")
 
     st.caption("職稱｜姓名 編號 整體置中設定")
-    row_y   = st.number_input("整列 Y 座標", value=168, step=2, key="row_y")
+    row_y   = st.number_input("整列 Y 座標（垂直中心）", value=168, step=2, key="row_y")
     sep_w   = st.slider("分隔線粗細（px）",      1,  10,  3)
     sep_gap = st.slider("分隔線左右留白（px）",   4,  40, 14)
     num_gap = st.slider("編號與姓名間距（px）",   4,  40, 12)
     sep_color = st.color_picker("分隔線顏色", "#1a1a1a")
+
+    st.caption("Y 軸微調（正數往下，負數往上）")
+    oy1, oy2 = st.columns(2)
+    oy_role = oy1.number_input("職稱 Y 偏移", value=0, step=1, key="oy_role")
+    oy_name = oy2.number_input("姓名 Y 偏移", value=0, step=1, key="oy_name")
+    oy3, oy4 = st.columns(2)
+    oy_sep  = oy3.number_input("分隔線 Y 偏移", value=0, step=1, key="oy_sep")
+    oy_num  = oy4.number_input("編號 Y 偏移",   value=0, step=1, key="oy_num")
 
     st.divider()
 
@@ -270,10 +278,15 @@ def make_badge(bg_img, role, name, num, cfg):
     sep_gap       = cfg["sep_gap"]
     sep_thickness = cfg["sep_w"]
     num_gap       = cfg["num_gap"]
-    row_y         = cfg["row_y"]   # 整列垂直中心
+    row_y         = cfg["row_y"]
+
+    # Y 偏移（各元素獨立微調）
+    oy_role = cfg["oy_role"]
+    oy_name = cfg["oy_name"]
+    oy_sep  = cfg["oy_sep"]
+    oy_num  = cfg["oy_num"]
 
     def tw(text, font):
-        """取文字寬度，多重備用"""
         try:
             bb = font.getbbox(str(text))
             w  = bb[2] - bb[0]
@@ -294,7 +307,6 @@ def make_badge(bg_img, role, name, num, cfg):
             return cfg["fs_role"] * len(str(text))
 
     def th(text, font):
-        """取文字高度"""
         try:
             bb = font.getbbox(str(text))
             return bb[3] - bb[1]
@@ -302,59 +314,59 @@ def make_badge(bg_img, role, name, num, cfg):
             return cfg["fs_role"]
 
     # ── 職稱：支援多行 ────────────────────────────────────────
-    role_str   = str(role)
-    role_lines = role_str.splitlines() if role_str else [role_str]
-    line_h     = th(role_lines[0] if role_lines else "國", f_role)
-    line_gap   = int(line_h * 0.15)
-    role_max_w = max(tw(l, f_role) for l in role_lines)
+    role_str     = str(role)
+    role_lines   = role_str.splitlines() if role_str else [role_str]
+    line_h       = th(role_lines[0] if role_lines else "國", f_role)
+    line_gap     = int(line_h * 0.15)
+    role_max_w   = max(tw(l, f_role) for l in role_lines)
     role_total_h = len(role_lines) * line_h + (len(role_lines) - 1) * line_gap
 
     # ── 姓名 ─────────────────────────────────────────────────
-    name_str  = str(name).strip()
-    has_name  = name_str and name_str.lower() not in ("nan", "none", "")
+    name_str = str(name).strip()
+    has_name = name_str and name_str.lower() not in ("nan", "none", "")
 
-    num_w    = tw(str(num), f_num)
-    num_h    = th(str(num), f_num)
+    num_w = tw(str(num), f_num)
+    num_h = th(str(num), f_num)
 
     if has_name:
-        name_w   = tw(name_str, f_name)
-        name_h   = th(name_str, f_name)   # 分隔線高度以此為準
-        total_w  = role_max_w + sep_gap + sep_thickness + sep_gap + name_w + num_gap + num_w
+        name_w  = tw(name_str, f_name)
+        name_h  = th(name_str, f_name)
+        total_w = role_max_w + sep_gap + sep_thickness + sep_gap + name_w + num_gap + num_w
     else:
-        name_w   = 0
-        name_h   = line_h                  # 無姓名時用職稱行高代替
-        total_w  = role_max_w + num_gap + num_w
+        name_w  = 0
+        name_h  = line_h
+        total_w = role_max_w + num_gap + num_w
 
     start_x = (W - total_w) / 2
 
-    # ── 職稱各行：水平置中在 role_max_w 範圍內，垂直置中在 name_h ──
-    role_start_y = row_y - name_h // 2 + (name_h - role_total_h) // 2
+    # ── 職稱各行：水平置中，垂直置中在 name_h + Y偏移 ────────
+    role_start_y = row_y - name_h // 2 + (name_h - role_total_h) // 2 + oy_role
     for li, line in enumerate(role_lines):
         lw = tw(line, f_role)
-        lx = start_x + (role_max_w - lw) / 2   # 水平置中
+        lx = start_x + (role_max_w - lw) / 2
         ly = role_start_y + li * (line_h + line_gap)
         draw.text((lx, ly), line, font=f_role, fill=c)
 
     if has_name:
-        # ── 分隔線：高度 = 姓名高度，垂直置中在 row_y ────────
+        # ── 分隔線：高度=姓名高度，垂直置中在 row_y + Y偏移 ──
         sep_x   = start_x + role_max_w + sep_gap
-        sep_top = row_y - name_h // 2
+        sep_top = row_y - name_h // 2 + oy_sep
         sep_bot = sep_top + name_h
         draw.line([(sep_x, sep_top), (sep_x, sep_bot)], fill=sc, width=sep_thickness)
 
-        # ── 姓名：垂直置中在 row_y ───────────────────────────
+        # ── 姓名：垂直置中在 row_y + Y偏移 ──────────────────
         name_x = sep_x + sep_thickness + sep_gap
-        name_y = row_y - name_h // 2
+        name_y = row_y - name_h // 2 + oy_name
         draw.text((name_x, name_y), name_str, font=f_name, fill=c)
 
-        # ── 編號：底部對齊姓名底部往上 10px ──────────────────
+        # ── 編號：底部對齊姓名底部往上 10px + Y偏移 ──────────
         num_x = name_x + name_w + num_gap
-        num_y = name_y + name_h - num_h - 10
+        num_y = name_y + name_h - num_h - 10 + oy_num
         draw.text((num_x, num_y), str(num), font=f_num, fill=c)
     else:
-        # ── 無姓名：職稱＋編號整體置中 ───────────────────────
+        # ── 無姓名：職稱置中，編號貼右側 + Y偏移 ────────────
         num_x = start_x + role_max_w + num_gap
-        num_y = row_y - num_h // 2
+        num_y = row_y - num_h // 2 + oy_num
         draw.text((num_x, num_y), str(num), font=f_num, fill=c)
 
     return img
@@ -375,6 +387,8 @@ def build_cfg():
         date_x=date_x, date_y=date_y,
         row_y=int(row_y),
         sep_w=sep_w, sep_gap=sep_gap, num_gap=num_gap,
+        oy_role=int(oy_role), oy_name=int(oy_name),
+        oy_sep=int(oy_sep),   oy_num=int(oy_num),
     )
 
 # ── A4 預覽圖產生 ────────────────────────────────────────────────
