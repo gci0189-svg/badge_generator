@@ -270,9 +270,10 @@ def make_badge(bg_img, role, name, num, cfg):
     sep_gap       = cfg["sep_gap"]
     sep_thickness = cfg["sep_w"]
     num_gap       = cfg["num_gap"]
-    row_y         = cfg["row_y"]
+    row_y         = cfg["row_y"]   # 整列垂直中心
 
-    def text_width(text, font):
+    def tw(text, font):
+        """取文字寬度，多重備用"""
         try:
             bb = font.getbbox(str(text))
             w  = bb[2] - bb[0]
@@ -292,64 +293,68 @@ def make_badge(bg_img, role, name, num, cfg):
         except Exception:
             return cfg["fs_role"] * len(str(text))
 
-    def text_height(text, font):
+    def th(text, font):
+        """取文字高度"""
         try:
             bb = font.getbbox(str(text))
             return bb[3] - bb[1]
         except Exception:
             return cfg["fs_role"]
 
-    # ── 職稱：尊重 Excel 換行（\n） ─────────────────────────
+    # ── 職稱：支援多行 ────────────────────────────────────────
     role_str   = str(role)
     role_lines = role_str.splitlines() if role_str else [role_str]
-    line_h     = text_height(role_lines[0] if role_lines else "國", f_role)
+    line_h     = th(role_lines[0] if role_lines else "國", f_role)
     line_gap   = int(line_h * 0.15)
-    role_w     = max(text_width(l, f_role) for l in role_lines)
+    role_max_w = max(tw(l, f_role) for l in role_lines)
     role_total_h = len(role_lines) * line_h + (len(role_lines) - 1) * line_gap
 
-    # ── 判斷姓名是否有效 ─────────────────────────────────────
+    # ── 姓名 ─────────────────────────────────────────────────
     name_str  = str(name).strip()
     has_name  = name_str and name_str.lower() not in ("nan", "none", "")
 
-    num_w    = text_width(str(num), f_num)
-    num_h_bb = text_height(str(num), f_num)
+    num_w    = tw(str(num), f_num)
+    num_h    = th(str(num), f_num)
 
     if has_name:
-        name_w    = text_width(name_str, f_name)
-        name_h_bb = text_height(name_str, f_name)
-        total_w   = role_w + sep_gap + sep_thickness + sep_gap + name_w + num_gap + num_w
+        name_w   = tw(name_str, f_name)
+        name_h   = th(name_str, f_name)   # 分隔線高度以此為準
+        total_w  = role_max_w + sep_gap + sep_thickness + sep_gap + name_w + num_gap + num_w
     else:
-        name_w  = 0
-        total_w = role_w + num_gap + num_w
+        name_w   = 0
+        name_h   = line_h                  # 無姓名時用職稱行高代替
+        total_w  = role_max_w + num_gap + num_w
 
     start_x = (W - total_w) / 2
 
-    # ── 畫職稱（多行，垂直置中在 row_y） ─────────────────────
-    role_start_y = row_y - role_total_h // 2
+    # ── 職稱各行：水平置中在 role_max_w 範圍內，垂直置中在 name_h ──
+    role_start_y = row_y - name_h // 2 + (name_h - role_total_h) // 2
     for li, line in enumerate(role_lines):
+        lw = tw(line, f_role)
+        lx = start_x + (role_max_w - lw) / 2   # 水平置中
         ly = role_start_y + li * (line_h + line_gap)
-        draw.text((start_x, ly), line, font=f_role, fill=c)
+        draw.text((lx, ly), line, font=f_role, fill=c)
 
     if has_name:
-        # 分隔線：拉滿職稱總高度
-        sep_x      = start_x + role_w + sep_gap
-        sep_top    = role_start_y
-        sep_bottom = role_start_y + role_total_h
-        draw.line([(sep_x, sep_top), (sep_x, sep_bottom)], fill=sc, width=sep_thickness)
+        # ── 分隔線：高度 = 姓名高度，垂直置中在 row_y ────────
+        sep_x   = start_x + role_max_w + sep_gap
+        sep_top = row_y - name_h // 2
+        sep_bot = sep_top + name_h
+        draw.line([(sep_x, sep_top), (sep_x, sep_bot)], fill=sc, width=sep_thickness)
 
-        # 姓名：垂直置中對齊整列
+        # ── 姓名：垂直置中在 row_y ───────────────────────────
         name_x = sep_x + sep_thickness + sep_gap
-        name_y = row_y - name_h_bb // 2
+        name_y = row_y - name_h // 2
         draw.text((name_x, name_y), name_str, font=f_name, fill=c)
 
-        # 編號：底部對齊姓名底部往上 10px
+        # ── 編號：底部對齊姓名底部往上 10px ──────────────────
         num_x = name_x + name_w + num_gap
-        num_y = name_y + name_h_bb - num_h_bb - 10
+        num_y = name_y + name_h - num_h - 10
         draw.text((num_x, num_y), str(num), font=f_num, fill=c)
     else:
-        # 無姓名：職稱＋編號整體置中，編號貼右側
-        num_x = start_x + role_w + num_gap
-        num_y = row_y - num_h_bb // 2
+        # ── 無姓名：職稱＋編號整體置中 ───────────────────────
+        num_x = start_x + role_max_w + num_gap
+        num_y = row_y - num_h // 2
         draw.text((num_x, num_y), str(num), font=f_num, fill=c)
 
     return img
@@ -515,7 +520,7 @@ if bg_file and xl_file and col_role:
 
         # 自動計算 cell 大小，扣除安全邊距確保三列塞得進去
         usable_w = (210 - margin_left - margin_right) * mm
-        usable_h = (297 - margin_top  - margin_bottom) * mm - 4  # 4pt 安全邊距
+        usable_h = (297 - margin_top  - margin_bottom) * mm - 12  # 12pt 安全邊距，確保三列塞得進去
         cell_w   = usable_w / cols_n
         cell_h   = usable_h / rows_n
 
