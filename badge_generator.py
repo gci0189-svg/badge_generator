@@ -209,8 +209,41 @@ with col1:
     bg_file = st.file_uploader("上傳底圖（JPG / PNG）", type=["jpg", "jpeg", "png"])
     if bg_file:
         st.image(bg_file, caption="目前底圖", use_container_width=True)
+
+    # ── ⚡ 快速製作（永遠顯示在底圖欄下方） ──────────────────────
+    st.divider()
+    st.subheader("⚡ 快速製作（不需 Excel）")
+    st.caption("臨時少量製作，直接填入資料，最多 10 筆")
+
+    if "quick_rows" not in st.session_state:
+        st.session_state.quick_rows = 1
+
+    qc1, qc2 = st.columns(2)
+    with qc1:
+        if st.button("＋ 新增一筆", use_container_width=True):
+            if st.session_state.quick_rows < 10:
+                st.session_state.quick_rows += 1
+                st.rerun()
+    with qc2:
+        if st.button("－ 刪除最後一筆", use_container_width=True):
+            if st.session_state.quick_rows > 1:
+                st.session_state.quick_rows -= 1
+                st.rerun()
+
+    quick_data = []
+    for qi in range(st.session_state.quick_rows):
+        st.markdown(f"**第 {qi+1} 筆**")
+        role_val = st.text_area("職稱（可換行）", key=f"q_role_{qi}",
+                                placeholder="例：燈光設計暨\n技術總監",
+                                height=80)
+        qb, qc_ = st.columns([3, 1])
+        name_val = qb.text_input("姓名", key=f"q_name_{qi}",
+                                 placeholder="留空則不顯示")
+        num_val  = qc_.text_input("編號", key=f"q_num_{qi}", placeholder="1")
+        quick_data.append((role_val, name_val, num_val))
+
 with col2:
-    st.subheader("📊 人員名單")
+    st.subheader("📊 上傳 Excel 名單")
     xl_file = st.file_uploader("上傳 Excel 名單", type=["xlsx", "xls"])
     st.caption("Excel 需包含：職務、姓名、編號 等欄位")
     if xl_file:
@@ -260,7 +293,6 @@ def make_badge(bg_img, role, name, num, cfg):
     sc   = cfg["sep_color"]
     W    = cfg["w"]
 
-    # ── 固定三行 ──────────────────────────────────────────────
     draw.text((cfg["prog_x"], cfg["prog_y"]),
               f"節目名稱：{prog_name}",
               font=get_font(cfg["f_prog"], cfg["fs_prog"]), fill=c)
@@ -279,8 +311,6 @@ def make_badge(bg_img, role, name, num, cfg):
     sep_thickness = cfg["sep_w"]
     num_gap       = cfg["num_gap"]
     row_y         = cfg["row_y"]
-
-    # Y 偏移（各元素獨立微調）
     oy_role = cfg["oy_role"]
     oy_name = cfg["oy_name"]
     oy_sep  = cfg["oy_sep"]
@@ -313,7 +343,6 @@ def make_badge(bg_img, role, name, num, cfg):
         except Exception:
             return cfg["fs_role"]
 
-    # ── 職稱：支援多行 ────────────────────────────────────────
     role_str     = str(role)
     role_lines   = role_str.splitlines() if role_str else [role_str]
     line_h       = th(role_lines[0] if role_lines else "國", f_role)
@@ -321,7 +350,6 @@ def make_badge(bg_img, role, name, num, cfg):
     role_max_w   = max(tw(l, f_role) for l in role_lines)
     role_total_h = len(role_lines) * line_h + (len(role_lines) - 1) * line_gap
 
-    # ── 姓名 ─────────────────────────────────────────────────
     name_str = str(name).strip()
     has_name = name_str and name_str.lower() not in ("nan", "none", "")
 
@@ -339,7 +367,6 @@ def make_badge(bg_img, role, name, num, cfg):
 
     start_x = (W - total_w) / 2
 
-    # ── 職稱各行：水平置中，垂直置中在 name_h + Y偏移 ────────
     role_start_y = row_y - name_h // 2 + (name_h - role_total_h) // 2 + oy_role
     for li, line in enumerate(role_lines):
         lw = tw(line, f_role)
@@ -348,29 +375,24 @@ def make_badge(bg_img, role, name, num, cfg):
         draw.text((lx, ly), line, font=f_role, fill=c)
 
     if has_name:
-        # ── 分隔線：高度=姓名高度，垂直置中在 row_y + Y偏移 ──
         sep_x   = start_x + role_max_w + sep_gap
         sep_top = row_y - name_h // 2 + oy_sep
         sep_bot = sep_top + name_h
         draw.line([(sep_x, sep_top), (sep_x, sep_bot)], fill=sc, width=sep_thickness)
 
-        # ── 姓名：垂直置中在 row_y + Y偏移 ──────────────────
         name_x = sep_x + sep_thickness + sep_gap
         name_y = row_y - name_h // 2 + oy_name
         draw.text((name_x, name_y), name_str, font=f_name, fill=c)
 
-        # ── 編號：底部對齊姓名底部往上 10px + Y偏移 ──────────
         num_x = name_x + name_w + num_gap
         num_y = name_y + name_h - num_h - 10 + oy_num
         draw.text((num_x, num_y), str(num), font=f_num, fill=c)
     else:
-        # ── 無姓名：職稱置中，編號貼右側 + Y偏移 ────────────
         num_x = start_x + role_max_w + num_gap
         num_y = row_y - num_h // 2 + oy_num
         draw.text((num_x, num_y), str(num), font=f_num, fill=c)
 
     return img
-
 
 def build_cfg():
     return dict(
@@ -393,47 +415,33 @@ def build_cfg():
 
 # ── A4 預覽圖產生 ────────────────────────────────────────────────
 def make_a4_preview(badge_imgs, page_idx, cols_n, rows_n, mg_t, mg_b, mg_l, mg_r):
-    """
-    把第 page_idx 頁的工作證排成 A4 比例預覽圖（白底）
-    A4: 210 x 297mm → 比例 1:1.414，預覽圖寬固定 800px
-    """
     PW, PH = 800, int(800 * 297 / 210)
     preview = Image.new("RGB", (PW, PH), "white")
-
-    # 邊界轉換（mm → px，以 PW=800px=210mm 為基準）
     scale = PW / 210
     pad_t = int(mg_t * scale)
     pad_b = int(mg_b * scale)
     pad_l = int(mg_l * scale)
     pad_r = int(mg_r * scale)
-
     usable_w = PW - pad_l - pad_r
-    usable_h = PH - pad_t - pad_b - int(4 * scale)  # 安全邊距
-
+    usable_h = PH - pad_t - pad_b - int(4 * scale)
     cell_w = usable_w // cols_n
     cell_h = usable_h // rows_n
-
     per_page = cols_n * rows_n
     start    = page_idx * per_page
     page_imgs = badge_imgs[start : start + per_page]
-
     for idx, bimg in enumerate(page_imgs):
         ri = idx // cols_n
         ci = idx % cols_n
         x  = pad_l + ci * cell_w
         y  = pad_t + ri * cell_h
-        # 等比縮放填入格子（保留比例）
         bimg_rgb = bimg.convert("RGB")
         bw, bh   = bimg_rgb.size
         ratio    = min(cell_w / bw, cell_h / bh)
         nw, nh   = int(bw * ratio), int(bh * ratio)
         resized  = bimg_rgb.resize((nw, nh), Image.LANCZOS)
-        # 置中放入格子
         ox = x + (cell_w - nw) // 2
         oy = y + (cell_h - nh) // 2
         preview.paste(resized, (ox, oy))
-
-    # 畫格線
     draw = ImageDraw.Draw(preview)
     for ci in range(cols_n + 1):
         x = pad_l + ci * cell_w
@@ -441,77 +449,59 @@ def make_a4_preview(badge_imgs, page_idx, cols_n, rows_n, mg_t, mg_b, mg_l, mg_r
     for ri in range(rows_n + 1):
         y = pad_t + ri * cell_h
         draw.line([(pad_l, y), (pad_l + cols_n * cell_w, y)], fill="#cccccc", width=1)
-    # 頁面外框
     draw.rectangle([(0, 0), (PW-1, PH-1)], outline="#aaaaaa", width=2)
-
     return preview
 
-# ── 主邏輯 ───────────────────────────────────────────────────────
-if bg_file and xl_file and col_role:
-    st.divider()
-    bg  = Image.open(bg_file).convert("RGBA")
-    df  = pd.read_excel(xl_file)
-    cfg = build_cfg()
-
-    # 產生所有工作證圖（供預覽與 PDF 共用）
-    all_badges = []
-    for _, r in df.iterrows():
-        all_badges.append(make_badge(bg,
-                                     role=str(r[col_role]),
-                                     name=str(r[col_name]),
-                                     num=str(r[col_num]),
-                                     cfg=cfg))
-
-    cols_n   = int(per_row)
-    rows_n   = per_page // cols_n
+def render_preview_and_pdf(all_badges, source_label=""):
+    """共用的預覽＋PDF產生區塊"""
+    cols_n = int(per_row)
+    rows_n = per_page // cols_n
     total_pages = -(-len(all_badges) // per_page)
 
-    # ── 單張預覽 ─────────────────────────────────────────────
     st.subheader("👁️ 單張預覽")
     st.image(all_badges[0].convert("RGB"), width=500)
 
-    # ── A4 整頁預覽（可翻頁） ────────────────────────────────
     st.divider()
     st.subheader("📄 A4 整頁預覽")
 
-    if "preview_page" not in st.session_state:
-        st.session_state.preview_page = 0
-    if st.session_state.preview_page >= total_pages:
-        st.session_state.preview_page = 0
+    page_key = f"preview_page_{source_label}"
+    if page_key not in st.session_state:
+        st.session_state[page_key] = 0
+    if st.session_state[page_key] >= total_pages:
+        st.session_state[page_key] = 0
 
     nav1, nav2, nav3 = st.columns([1, 3, 1])
     with nav1:
         if st.button("◀ 上一頁", use_container_width=True,
-                     disabled=st.session_state.preview_page == 0):
-            st.session_state.preview_page -= 1
+                     disabled=st.session_state[page_key] == 0,
+                     key=f"prev_{source_label}"):
+            st.session_state[page_key] -= 1
             st.rerun()
     with nav2:
         st.markdown(
             f"<div style='text-align:center;padding-top:8px;font-weight:600;'>"
-            f"第 {st.session_state.preview_page + 1} 頁 / 共 {total_pages} 頁</div>",
+            f"第 {st.session_state[page_key] + 1} 頁 / 共 {total_pages} 頁</div>",
             unsafe_allow_html=True
         )
     with nav3:
         if st.button("下一頁 ▶", use_container_width=True,
-                     disabled=st.session_state.preview_page >= total_pages - 1):
-            st.session_state.preview_page += 1
+                     disabled=st.session_state[page_key] >= total_pages - 1,
+                     key=f"next_{source_label}"):
+            st.session_state[page_key] += 1
             st.rerun()
 
     a4_img = make_a4_preview(
         all_badges,
-        page_idx = st.session_state.preview_page,
-        cols_n   = cols_n,
-        rows_n   = rows_n,
-        mg_t     = margin_top,
-        mg_b     = margin_bottom,
-        mg_l     = margin_left,
-        mg_r     = margin_right,
+        page_idx = st.session_state[page_key],
+        cols_n=cols_n, rows_n=rows_n,
+        mg_t=margin_top, mg_b=margin_bottom,
+        mg_l=margin_left, mg_r=margin_right,
     )
     st.image(a4_img, use_container_width=True)
 
-    # ── 產生 PDF ─────────────────────────────────────────────
     st.divider()
-    if st.button("🖨️ 產生 PDF（A4，每頁 6 張）", type="primary", use_container_width=True):
+    if st.button("🖨️ 產生 PDF", type="primary",
+                 use_container_width=True, key=f"pdf_btn_{source_label}"):
         progress = st.progress(0, text="存檔中…")
         tmp_dir = tempfile.mkdtemp()
         paths   = []
@@ -522,19 +512,14 @@ if bg_file and xl_file and col_role:
             progress.progress((i + 1) / len(all_badges), text=f"存檔 {i+1}/{len(all_badges)}…")
 
         progress.progress(1.0, text="排版 PDF…")
-
         pdf_buf = io.BytesIO()
         doc = SimpleDocTemplate(
             pdf_buf, pagesize=A4,
-            leftMargin   = margin_left   * mm,
-            rightMargin  = margin_right  * mm,
-            topMargin    = margin_top    * mm,
-            bottomMargin = margin_bottom * mm,
+            leftMargin=margin_left*mm, rightMargin=margin_right*mm,
+            topMargin=margin_top*mm,   bottomMargin=margin_bottom*mm,
         )
-
-        # 自動計算 cell 大小，扣除安全邊距確保三列塞得進去
         usable_w = (210 - margin_left - margin_right) * mm
-        usable_h = (297 - margin_top  - margin_bottom) * mm - 12  # 12pt 安全邊距，確保三列塞得進去
+        usable_h = (297 - margin_top  - margin_bottom) * mm - 12
         cell_w   = usable_w / cols_n
         cell_h   = usable_h / rows_n
 
@@ -543,7 +528,6 @@ if bg_file and xl_file and col_role:
             page_paths = paths[page_start : page_start + per_page]
             while len(page_paths) < per_page:
                 page_paths.append(None)
-
             tbl_rows = []
             for ri in range(rows_n):
                 row_cells = []
@@ -552,7 +536,6 @@ if bg_file and xl_file and col_role:
                     p   = page_paths[idx]
                     row_cells.append(RLImage(p, width=cell_w, height=cell_h) if p else "")
                 tbl_rows.append(row_cells)
-
             tbl = Table(tbl_rows, colWidths=[cell_w]*cols_n, rowHeights=[cell_h]*rows_n)
             tbl.setStyle(TableStyle([
                 ("ALIGN",  (0,0), (-1,-1), "CENTER"),
@@ -565,139 +548,46 @@ if bg_file and xl_file and col_role:
 
         doc.build(story)
         pdf_buf.seek(0)
-
+        fname = "工作證_快速製作.pdf" if source_label == "quick" else "工作證_阿甯咕爸鼻不見了.pdf"
         st.success(f"✅ 共產生 {len(all_badges)} 張工作證，{total_pages} 頁 PDF")
         st.download_button(
             label="⬇️ 下載 PDF",
             data=pdf_buf,
-            file_name="工作證_阿甯咕爸鼻不見了.pdf",
+            file_name=fname,
             mime="application/pdf",
             use_container_width=True,
+            key=f"dl_{source_label}",
         )
 
-elif not bg_file and not xl_file:
-    st.info("👆 請上傳底圖與 Excel 名單後開始使用")
-elif not bg_file:
-    st.warning("⚠️ 請上傳底圖")
-elif not xl_file:
-    st.warning("⚠️ 請上傳 Excel 名單")
-
-# ── 快速製作（不需 Excel） ──────────────────────────────────────
-if bg_file:
+# ── 快速製作：有底圖時顯示預覽＋PDF ────────────────────────────
+quick_valid = [(r, n, u) for r, n, u in quick_data if r.strip()]
+if bg_file and quick_valid:
     st.divider()
-    st.subheader("⚡ 快速製作（不需 Excel）")
-    st.caption("臨時少量製作，直接填入資料，最多 10 筆")
+    st.subheader("⚡ 快速製作 — 預覽與輸出")
+    bg_q  = Image.open(bg_file).convert("RGBA")
+    cfg_q = build_cfg()
+    q_badges = [make_badge(bg_q,
+                           role=r,
+                           name=n if n.strip() else "nan",
+                           num=u if u.strip() else "",
+                           cfg=cfg_q)
+                for r, n, u in quick_valid]
+    render_preview_and_pdf(q_badges, source_label="quick")
 
-    if "quick_rows" not in st.session_state:
-        st.session_state.quick_rows = 1
+elif quick_valid and not bg_file:
+    st.info("⚠️ 已填入資料，請上傳底圖以產生預覽與 PDF")
 
-    qc1, qc2 = st.columns([1, 5])
-    with qc1:
-        if st.button("＋ 新增一筆", use_container_width=True):
-            if st.session_state.quick_rows < 10:
-                st.session_state.quick_rows += 1
-                st.rerun()
-    with qc2:
-        if st.button("－ 刪除最後一筆", use_container_width=True):
-            if st.session_state.quick_rows > 1:
-                st.session_state.quick_rows -= 1
-                st.rerun()
-
-    quick_data = []
-    for qi in range(st.session_state.quick_rows):
-        st.markdown(f"**第 {qi+1} 筆**")
-        qa, qb, qc_ = st.columns([3, 3, 1])
-        role_val = qa.text_area("職稱（可換行）", key=f"q_role_{qi}",
-                                placeholder="例：燈光設計暨\n技術總監",
-                                height=90)
-        name_val = qb.text_input("姓名", key=f"q_name_{qi}",
-                                 placeholder="例：周佳儀（留空則不顯示）")
-        num_val  = qc_.text_input("編號", key=f"q_num_{qi}", placeholder="1")
-        quick_data.append((role_val, name_val, num_val))
-        st.divider()
-
-    # ── 快速預覽第一筆 ────────────────────────────────────────
-    first_valid = next(((r,n,u) for r,n,u in quick_data if r.strip()), None)
-    if first_valid:
-        st.caption("👁️ 第一筆預覽")
-        bg_prev = Image.open(bg_file).convert("RGBA")
-        cfg_prev = build_cfg()
-        r0, n0, u0 = first_valid
-        prev_img = make_badge(bg_prev,
-                              role=r0,
-                              name=n0 if n0.strip() else "nan",
-                              num=u0 if u0.strip() else "",
-                              cfg=cfg_prev)
-        st.image(prev_img.convert("RGB"), width=400)
-
-    if st.button("🖨️ 快速產生 PDF", type="primary", use_container_width=True):
-        # 過濾掉職稱為空的列
-        valid = [(r, n, u) for r, n, u in quick_data if r.strip()]
-        if not valid:
-            st.warning("⚠️ 請至少填入一筆職稱")
-        else:
-            bg_q  = Image.open(bg_file).convert("RGBA")
-            cfg_q = build_cfg()
-
-            q_badges = []
-            for r, n, u in valid:
-                q_badges.append(make_badge(bg_q,
-                                           role=r,
-                                           name=n if n.strip() else "nan",
-                                           num=u if u.strip() else "",
-                                           cfg=cfg_q))
-
-            tmp_dir = tempfile.mkdtemp()
-            q_paths = []
-            for i, img in enumerate(q_badges):
-                p = os.path.join(tmp_dir, f"quick_{i:03d}.png")
-                img.convert("RGB").save(p, dpi=(150, 150))
-                q_paths.append(p)
-
-            cols_n = int(per_row)
-            rows_n = per_page // cols_n
-            cell_w_q = (210 - margin_left - margin_right) * mm / cols_n
-            cell_h_q = ((297 - margin_top - margin_bottom) * mm - 12) / rows_n
-
-            pdf_q = io.BytesIO()
-            doc_q = SimpleDocTemplate(
-                pdf_q, pagesize=A4,
-                leftMargin=margin_left*mm, rightMargin=margin_right*mm,
-                topMargin=margin_top*mm,   bottomMargin=margin_bottom*mm,
-            )
-            story_q = []
-            for page_start in range(0, len(q_paths), per_page):
-                page_paths = q_paths[page_start : page_start + per_page]
-                while len(page_paths) < per_page:
-                    page_paths.append(None)
-
-                tbl_rows = []
-                for ri in range(rows_n):
-                    row_cells = []
-                    for ci in range(cols_n):
-                        idx = ri * cols_n + ci
-                        p   = page_paths[idx]
-                        row_cells.append(RLImage(p, width=cell_w_q, height=cell_h_q) if p else "")
-                    tbl_rows.append(row_cells)
-
-                tbl = Table(tbl_rows, colWidths=[cell_w_q]*cols_n, rowHeights=[cell_h_q]*rows_n)
-                tbl.setStyle(TableStyle([
-                    ("ALIGN",  (0,0), (-1,-1), "CENTER"),
-                    ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-                    ("GRID",   (0,0), (-1,-1), 0.3, colors.lightgrey),
-                ]))
-                story_q.append(tbl)
-                if page_start + per_page < len(q_paths):
-                    story_q.append(PageBreak())
-
-            doc_q.build(story_q)
-            pdf_q.seek(0)
-
-            st.success(f"✅ 共產生 {len(valid)} 張工作證")
-            st.download_button(
-                label="⬇️ 下載快速製作 PDF",
-                data=pdf_q,
-                file_name="工作證_快速製作.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-    )
+# ── Excel 模式：有底圖＋Excel 時顯示預覽＋PDF ───────────────────
+if bg_file and xl_file and col_role:
+    st.divider()
+    st.subheader("📊 Excel 名單 — 預覽與輸出")
+    bg_xl  = Image.open(bg_file).convert("RGBA")
+    df_xl  = pd.read_excel(xl_file)
+    cfg_xl = build_cfg()
+    xl_badges = [make_badge(bg_xl,
+                            role=str(r[col_role]),
+                            name=str(r[col_name]),
+                            num=str(r[col_num]),
+                            cfg=cfg_xl)
+                 for _, r in df_xl.iterrows()]
+    render_preview_and_pdf(xl_badges, source_label="excel")
